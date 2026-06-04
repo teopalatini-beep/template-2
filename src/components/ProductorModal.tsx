@@ -3,6 +3,23 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { Productor, EstadoProductor } from '@/lib/types'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+
+const schema = z.object({
+  nombre: z.string().min(1, 'El nombre es requerido'),
+  empresa: z.string().optional(),
+  telefono: z.string().optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  tipo_evento: z.string().optional(),
+  estado: z.enum(['prospecto', 'activo', 'inactivo']),
+  notas: z.string().optional(),
+})
+
+type FormData = z.infer<typeof schema>
+
+const tiposEvento = ['Recital', 'Fiesta', 'Teatro', 'Corporativo', 'Deportivo', 'Otro']
 
 interface ProductorModalProps {
   open: boolean
@@ -11,197 +28,149 @@ interface ProductorModalProps {
   productor?: Productor | null
 }
 
-const tiposEvento = ['Recital', 'Fiesta', 'Teatro', 'Corporativo', 'Deportivo', 'Otro']
-const estados: { value: EstadoProductor; label: string }[] = [
-  { value: 'prospecto', label: 'Prospecto' },
-  { value: 'activo', label: 'Activo' },
-  { value: 'inactivo', label: 'Inactivo' },
-]
-
-const emptyForm = {
-  nombre: '',
-  empresa: '',
-  telefono: '',
-  email: '',
-  tipo_evento: '',
-  estado: 'prospecto' as EstadoProductor,
-  notas: '',
+function Field({ label, error, required, children }: {
+  label: string
+  error?: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="block text-[11px] font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">
+        {label} {required && <span className="text-red-400 normal-case">*</span>}
+      </label>
+      {children}
+      {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
+    </div>
+  )
 }
 
+const inputClass = 'w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/20 transition-all'
+
 export default function ProductorModal({ open, onClose, onSave, productor }: ProductorModalProps) {
-  const [form, setForm] = useState(emptyForm)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [serverError, setServerError] = useState('')
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { estado: 'prospecto' },
+  })
 
   useEffect(() => {
-    if (productor) {
-      setForm({
-        nombre: productor.nombre ?? '',
+    if (open) {
+      reset(productor ? {
+        nombre: productor.nombre,
         empresa: productor.empresa ?? '',
         telefono: productor.telefono ?? '',
         email: productor.email ?? '',
         tipo_evento: productor.tipo_evento ?? '',
-        estado: productor.estado ?? 'prospecto',
+        estado: productor.estado,
         notas: productor.notas ?? '',
+      } : {
+        nombre: '', empresa: '', telefono: '', email: '',
+        tipo_evento: '', estado: 'prospecto', notas: '',
       })
-    } else {
-      setForm(emptyForm)
+      setServerError('')
     }
-    setError('')
-  }, [productor, open])
+  }, [open, productor, reset])
 
   if (!open) return null
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-
+  const onSubmit = async (data: FormData) => {
+    setServerError('')
     try {
       const url = productor ? `/api/productores/${productor.id}` : '/api/productores'
       const method = productor ? 'PUT' : 'POST'
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(data),
       })
-
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Error al guardar')
+        const err = await res.json()
+        throw new Error(err.error ?? 'Error al guardar')
       }
-
       onSave()
       onClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-    } finally {
-      setLoading(false)
+      setServerError(err instanceof Error ? err.message : 'Error desconocido')
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
-          <h2 className="text-base font-semibold text-white">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg bg-[#141414] border border-[#2a2a2a] rounded-2xl shadow-2xl shadow-black/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1f1f1f]">
+          <h2 className="text-[15px] font-semibold text-white">
             {productor ? 'Editar productor' : 'Agregar productor'}
           </h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <X size={18} />
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition-all"
+          >
+            <X size={15} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                Nombre <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={form.nombre}
-                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
-                placeholder="Juan García"
-              />
+              <Field label="Nombre" required error={errors.nombre?.message}>
+                <input {...register('nombre')} placeholder="Juan García" className={inputClass} />
+              </Field>
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Empresa</label>
-              <input
-                type="text"
-                value={form.empresa}
-                onChange={e => setForm(f => ({ ...f, empresa: e.target.value }))}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
-                placeholder="Eventos SA"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Teléfono (WhatsApp)</label>
-              <input
-                type="text"
-                value={form.telefono}
-                onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
-                placeholder="5491112345678"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors"
-                placeholder="juan@eventos.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Tipo de evento</label>
-              <select
-                value={form.tipo_evento}
-                onChange={e => setForm(f => ({ ...f, tipo_evento: e.target.value }))}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
-              >
-                <option value="">Seleccionar...</option>
-                {tiposEvento.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+            <Field label="Empresa" error={errors.empresa?.message}>
+              <input {...register('empresa')} placeholder="Eventos SA" className={inputClass} />
+            </Field>
+            <Field label="Estado" error={errors.estado?.message}>
+              <select {...register('estado')} className={inputClass}>
+                <option value="prospecto">Prospecto</option>
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
               </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Estado</label>
-              <select
-                value={form.estado}
-                onChange={e => setForm(f => ({ ...f, estado: e.target.value as EstadoProductor }))}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
-              >
-                {estados.map(e => (
-                  <option key={e.value} value={e.value}>{e.label}</option>
-                ))}
-              </select>
-            </div>
-
+            </Field>
+            <Field label="Teléfono WhatsApp" error={errors.telefono?.message}>
+              <input {...register('telefono')} placeholder="5491112345678" className={inputClass} />
+            </Field>
+            <Field label="Email" error={errors.email?.message}>
+              <input {...register('email')} type="email" placeholder="juan@eventos.com" className={inputClass} />
+            </Field>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Notas</label>
-              <textarea
-                value={form.notas}
-                onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
-                rows={3}
-                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors resize-none"
-                placeholder="Notas internas sobre el productor..."
-              />
+              <Field label="Tipo de evento" error={errors.tipo_evento?.message}>
+                <select {...register('tipo_evento')} className={inputClass}>
+                  <option value="">Seleccionar...</option>
+                  {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="col-span-2">
+              <Field label="Notas internas" error={errors.notas?.message}>
+                <textarea
+                  {...register('notas')}
+                  rows={3}
+                  placeholder="Notas sobre el productor..."
+                  className={`${inputClass} resize-none`}
+                />
+              </Field>
             </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
+          {serverError && (
+            <div className="mt-4 text-[12px] text-red-400 bg-red-500/8 border border-red-500/15 rounded-lg px-3 py-2">
+              {serverError}
+            </div>
           )}
 
-          <div className="flex gap-3 justify-end pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-zinc-400 hover:text-white border border-[#2a2a2a] hover:border-[#3a3a3a] rounded-lg transition-colors"
-            >
+          <div className="flex gap-2 justify-end mt-5 pt-4 border-t border-[#1f1f1f]">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-[13px] text-zinc-500 hover:text-white border border-[#2a2a2a] hover:border-[#3a3a3a] rounded-lg transition-all">
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-[13px] font-medium bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded-lg transition-all"
             >
-              {loading ? 'Guardando...' : productor ? 'Guardar cambios' : 'Agregar productor'}
+              {isSubmitting ? 'Guardando...' : productor ? 'Guardar cambios' : 'Agregar'}
             </button>
           </div>
         </form>

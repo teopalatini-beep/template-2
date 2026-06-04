@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote } from 'lucide-react'
+import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare } from 'lucide-react'
 import { Productor, Mensaje } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
+import { SkeletonText } from '@/components/Skeleton'
+import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -32,9 +34,27 @@ export default function ProductorDetailPage() {
 
   useEffect(() => { fetchData() }, [id])
 
+  const handleSave = () => {
+    toast.success('Productor actualizado')
+    fetchData()
+  }
+
   if (loading) {
     return (
-      <div className="p-8 text-center text-zinc-600 text-sm">Cargando...</div>
+      <div className="p-8 max-w-4xl mx-auto">
+        <div className="mb-6">
+          <SkeletonText className="h-3 w-24 mb-4" />
+          <SkeletonText className="h-6 w-48 mb-2" />
+          <SkeletonText className="h-3 w-32" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {[1, 2].map(i => (
+            <div key={i} className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5 space-y-3">
+              {[1, 2, 3].map(j => <SkeletonText key={j} className="h-3" />)}
+            </div>
+          ))}
+        </div>
+      </div>
     )
   }
 
@@ -42,103 +62,96 @@ export default function ProductorDetailPage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <Link href="/productores" className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-4">
-          <ArrowLeft size={14} />
-          Volver a productores
-        </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">{productor.nombre}</h1>
-            {productor.empresa && (
-              <p className="text-zinc-500 text-sm mt-1">{productor.empresa}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
+      {/* Back */}
+      <Link href="/productores" className="inline-flex items-center gap-1.5 text-[12px] text-zinc-600 hover:text-zinc-300 transition-colors mb-5">
+        <ArrowLeft size={13} />
+        Productores
+      </Link>
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-white mb-1">{productor.nombre}</h1>
+          <div className="flex items-center gap-2">
             <StatusBadge status={productor.estado} />
-            <button
-              onClick={() => setModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-400 hover:text-white border border-[#2a2a2a] hover:border-[#3a3a3a] rounded-lg transition-colors"
-            >
-              <Pencil size={13} />
-              Editar
-            </button>
+            {productor.tipo_evento && (
+              <span className="text-[11px] text-zinc-600 bg-[#1a1a1a] rounded-md px-2 py-0.5 border border-[#222]">
+                {productor.tipo_evento}
+              </span>
+            )}
           </div>
         </div>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-2 px-3.5 py-2 text-[13px] text-zinc-400 hover:text-white border border-[#1f1f1f] hover:border-[#2a2a2a] rounded-lg transition-all"
+        >
+          <Pencil size={13} />
+          Editar
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        {/* Info card */}
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-5">
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-4">Datos de contacto</h2>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Contacto */}
+        <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
+          <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest mb-4">Contacto</p>
           <div className="space-y-3">
-            {productor.email && (
-              <div className="flex items-center gap-3">
-                <Mail size={14} className="text-zinc-600 shrink-0" />
-                <span className="text-sm text-zinc-300">{productor.email}</span>
+            {[
+              { icon: Mail,      value: productor.email,    mono: false },
+              { icon: Phone,     value: productor.telefono, mono: true  },
+              { icon: Building2, value: productor.empresa,  mono: false },
+              { icon: Tag,       value: productor.tipo_evento, mono: false },
+            ].filter(r => r.value).map(({ icon: Icon, value, mono }) => (
+              <div key={value} className="flex items-center gap-2.5">
+                <Icon size={13} className="text-zinc-700 shrink-0" />
+                <span className={`text-[13px] text-zinc-400 ${mono ? 'font-mono' : ''}`}>{value}</span>
               </div>
-            )}
-            {productor.telefono && (
-              <div className="flex items-center gap-3">
-                <Phone size={14} className="text-zinc-600 shrink-0" />
-                <span className="text-sm text-zinc-300 font-mono">{productor.telefono}</span>
-              </div>
-            )}
-            {productor.empresa && (
-              <div className="flex items-center gap-3">
-                <Building2 size={14} className="text-zinc-600 shrink-0" />
-                <span className="text-sm text-zinc-300">{productor.empresa}</span>
-              </div>
-            )}
-            {productor.tipo_evento && (
-              <div className="flex items-center gap-3">
-                <Tag size={14} className="text-zinc-600 shrink-0" />
-                <span className="text-sm text-zinc-300">{productor.tipo_evento}</span>
-              </div>
+            ))}
+            {!productor.email && !productor.telefono && !productor.empresa && (
+              <p className="text-[12px] text-zinc-700 italic">Sin datos de contacto</p>
             )}
           </div>
         </div>
 
         {/* Notas */}
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-5">
+        <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
-            <StickyNote size={13} className="text-zinc-600" />
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Notas</h2>
+            <StickyNote size={12} className="text-zinc-700" />
+            <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Notas</p>
           </div>
-          <p className="text-sm text-zinc-400 leading-relaxed whitespace-pre-wrap">
-            {productor.notas || <span className="text-zinc-600 italic">Sin notas</span>}
+          <p className="text-[13px] text-zinc-500 leading-relaxed whitespace-pre-wrap">
+            {productor.notas || <span className="text-zinc-700 italic">Sin notas</span>}
           </p>
         </div>
       </div>
 
-      {/* Historial de mensajes */}
-      <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl">
-        <div className="px-5 py-4 border-b border-[#2a2a2a]">
-          <h2 className="text-sm font-semibold text-white">Historial de comunicaciones</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">{mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''} enviado{mensajes.length !== 1 ? 's' : ''}</p>
+      {/* Historial */}
+      <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[#1a1a1a]">
+          <MessageSquare size={13} className="text-zinc-600" />
+          <p className="text-[13px] font-medium text-white">Historial</p>
+          <span className="text-[11px] text-zinc-600 ml-1">{mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''}</span>
         </div>
 
         {!mensajes.length ? (
-          <div className="p-8 text-center text-zinc-600 text-sm">
-            Todavía no se enviaron mensajes a este productor.
+          <div className="py-12 text-center">
+            <MessageSquare size={22} className="text-zinc-800 mx-auto mb-3" />
+            <p className="text-[12px] text-zinc-700">No se enviaron mensajes aún</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#1f1f1f]">
+          <div className="divide-y divide-[#111]">
             {mensajes.map(m => (
-              <div key={m.id} className="px-5 py-4">
-                <div className="flex items-start justify-between gap-4 mb-2">
+              <div key={m.id} className="px-5 py-4 hover:bg-white/[0.01] transition-colors">
+                <div className="flex items-center justify-between gap-4 mb-2">
                   <div className="flex items-center gap-2">
                     <StatusBadge status={m.canal} />
                     <StatusBadge status={m.status} />
                   </div>
-                  <span className="text-xs text-zinc-600 shrink-0">
-                    {m.enviado_at
-                      ? format(new Date(m.enviado_at), "d MMM yyyy, HH:mm", { locale: es })
-                      : format(new Date(m.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                  <span className="text-[11px] text-zinc-700 shrink-0">
+                    {format(new Date(m.enviado_at ?? m.created_at), "d MMM yyyy, HH:mm", { locale: es })}
                   </span>
                 </div>
                 {m.contenido && (
-                  <p className="text-sm text-zinc-400 leading-relaxed line-clamp-3">{m.contenido}</p>
+                  <p className="text-[12px] text-zinc-600 leading-relaxed line-clamp-2">{m.contenido}</p>
                 )}
               </div>
             ))}
@@ -149,7 +162,7 @@ export default function ProductorDetailPage() {
       <ProductorModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSave={() => fetchData()}
+        onSave={handleSave}
         productor={productor}
       />
     </div>
