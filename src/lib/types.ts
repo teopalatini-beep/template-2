@@ -39,3 +39,27 @@ export interface Mensaje {
   productores?: Productor
   campanas?: Campana
 }
+
+export type EstadoCliente = 'lead' | 'activo' | 'pausado'
+
+export interface Cliente {
+  id: string
+  nombre: string
+  empresa: string | null
+  email: string | null
+  telefono: string | null
+  estado: EstadoCliente
+  created_at: string
+}
+
+export type EstadoProyecto = 'pre_evento' | 'evento' | 'conclusion'
+
+export interface Proyecto {
+  id: string
+  cliente_id: string
+  nombre: string
+  servicio: string
+  estado: EstadoProyecto
+  fecha_evento: string | null
+  created_at: string
+}

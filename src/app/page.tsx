@@ -62,16 +62,16 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <StatCard icon={Users}        label="Productores"           value={data?.totalProductores ?? 0}  color="bg-violet-600"  loading={loading} />
-        <StatCard icon={Megaphone}    label="Campañas este mes"     value={data?.campanasEsteMes ?? 0}   color="bg-emerald-600" loading={loading} />
-        <StatCard icon={MessageSquare} label="Mensajes enviados"    value={data?.totalMensajes ?? 0}     color="bg-sky-600"     loading={loading} />
+        <StatCard icon={Users}         label="Productores"          value={data?.totalProductores ?? 0} color="bg-violet-600"  loading={loading} />
+        <StatCard icon={Megaphone}     label="Campañas este mes"    value={data?.campanasEsteMes ?? 0}  color="bg-emerald-600" loading={loading} />
+        <StatCard icon={MessageSquare} label="Mensajes enviados"    value={data?.totalMensajes ?? 0}    color="bg-sky-600"     loading={loading} />
       </div>
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 mb-8">
         {[
-          { href: '/productores', icon: Users,      label: 'Ver productores',   sub: 'Gestioná tu base de contactos' },
-          { href: '/campanas/nueva', icon: PlusCircle, label: 'Nueva campaña',  sub: 'Enviá mensajes masivos' },
+          { href: '/productores', icon: Users,      label: 'Ver productores', sub: 'Gestioná tu base de contactos' },
+          { href: '/campanas/nueva', icon: PlusCircle, label: 'Nueva campaña', sub: 'Enviá mensajes por WhatsApp o email' },
         ].map(({ href, icon: Icon, label, sub }) => (
           <Link
             key={href}
@@ -123,7 +123,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {data.ultimasCampanas.map(c => (
+              {data.ultimasCampanas.map((c) => (
                 <tr key={c.id} className="border-b border-[#111] last:border-0 hover:bg-white/[0.015] transition-colors">
                   <td className="px-5 py-3.5">
                     <Link href={`/campanas/${c.id}`} className="text-[13px] text-zinc-200 hover:text-violet-400 transition-colors font-medium">

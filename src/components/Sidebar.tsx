@@ -29,7 +29,7 @@ export default function Sidebar() {
             <Ticket size={13} className="text-white" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-white tracking-tight leading-none">Ticketera</p>
+            <p className="text-[13px] font-semibold text-white tracking-tight leading-none">CRM Productora</p>
             <p className="text-[10px] text-zinc-600 leading-none mt-0.5">CRM</p>
           </div>
         </div>
