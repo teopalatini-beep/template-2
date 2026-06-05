@@ -4,10 +4,18 @@ import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
 
 export async function POST(request: Request) {
+  const resendApiKey = process.env.RESEND_API_KEY
+  if (!resendApiKey) {
+    return NextResponse.json(
+      { error: 'Falta RESEND_API_KEY en variables de entorno' },
+      { status: 500 }
+    )
+  }
+  const resend = new Resend(resendApiKey)
+
   const { campana_id, titulo, mensaje, productor_ids } = await request.json()
 
   const { data: productores, error: prodError } = await supabase
