@@ -24,8 +24,10 @@ export async function POST(request: Request) {
       telefono: body.telefono || null,
       email: body.email || null,
       tipo_evento: body.tipo_evento || null,
+      pais: body.pais || null,
       estado: body.estado || 'prospecto',
       notas: body.notas || null,
+      tags: body.tags ?? [],
     }])
     .select()
     .single()

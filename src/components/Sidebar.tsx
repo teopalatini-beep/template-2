@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap } from 'lucide-react'
+import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap, BarChart2 } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/campanas', label: 'Campañas', icon: Megaphone },
   { href: '/campanas/nueva', label: 'Nueva campaña', icon: PlusCircle },
   { href: '/automatizaciones', label: 'Automatizaciones', icon: Zap },
+  { href: '/reportes', label: 'Reportes', icon: BarChart2 },
 ]
 
 export default function Sidebar() {

@@ -9,6 +9,8 @@ export interface Productor {
   tipo_evento: string | null
   estado: EstadoProductor
   notas: string | null
+  pais: string | null
+  tags: string[]
   created_at: string
 }
 
