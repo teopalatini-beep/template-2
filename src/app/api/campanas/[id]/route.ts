@@ -18,7 +18,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     .eq('campana_id', params.id)
     .order('enviado_at', { ascending: false })
 
-  const productorIds = [...new Set((mensajes ?? []).map((m: { productor_id: string }) => m.productor_id))]
+  const productorIds = Array.from(new Set((mensajes ?? []).map((m: { productor_id: string }) => m.productor_id)))
 
   let productoresMap: Record<string, { nombre: string; empresa: string | null }> = {}
   if (productorIds.length > 0) {
