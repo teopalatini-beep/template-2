@@ -51,8 +51,9 @@ export async function POST(request: Request) {
       status = 'fallido'
     } else {
       try {
+        const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
         const { error } = await resend.emails.send({
-          from: 'contacto@ticketera.com.ar',
+          from: fromEmail,
           to: productor.email,
           subject: titulo,
           text: mensaje,
