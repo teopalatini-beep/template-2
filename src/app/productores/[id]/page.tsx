@@ -21,15 +21,20 @@ export default function ProductorDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
 
   const fetchData = async () => {
-    const [pRes, mRes] = await Promise.all([
-      fetch(`/api/productores/${id}`),
-      fetch(`/api/mensajes?productor_id=${id}`),
-    ])
-    if (!pRes.ok) { router.push('/productores'); return }
-    const [p, m] = await Promise.all([pRes.json(), mRes.json()])
-    setProductor(p)
-    setMensajes(m)
-    setLoading(false)
+    try {
+      const [pRes, mRes] = await Promise.all([
+        fetch(`/api/productores/${id}`),
+        fetch(`/api/mensajes?productor_id=${id}`),
+      ])
+      if (!pRes.ok) { router.push('/productores'); return }
+      const [p, m] = await Promise.all([pRes.json(), mRes.json()])
+      setProductor(p)
+      setMensajes(m)
+    } catch {
+      router.push('/productores')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchData() }, [id])

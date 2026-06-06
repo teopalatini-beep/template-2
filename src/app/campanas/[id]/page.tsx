@@ -19,11 +19,17 @@ export default function CampanaDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [data, setData] = useState<CampanaDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/campanas/${id}`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+      .then(d => {
+        if (d.error) throw new Error(d.error)
+        setData(d)
+      })
+      .catch(e => setError(e.message ?? 'Error al cargar la campaña'))
+      .finally(() => setLoading(false))
   }, [id])
 
   if (loading) {
@@ -41,6 +47,16 @@ export default function CampanaDetailPage() {
       </div>
     )
   }
+
+  if (error) return (
+    <div className="p-8 max-w-4xl mx-auto">
+      <Link href="/campanas" className="inline-flex items-center gap-1.5 text-[12px] text-zinc-600 hover:text-zinc-300 transition-colors mb-5">
+        <ArrowLeft size={13} />
+        Campañas
+      </Link>
+      <p className="text-[13px] text-red-400">{error}</p>
+    </div>
+  )
 
   if (!data) return null
 
