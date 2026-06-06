@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare } from 'lucide-react'
@@ -20,7 +20,7 @@ export default function ProductorDetailPage() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [pRes, mRes] = await Promise.all([
         fetch(`/api/productores/${id}`),
@@ -35,9 +35,9 @@ export default function ProductorDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id, router])
 
-  useEffect(() => { fetchData() }, [id])
+  useEffect(() => { fetchData() }, [fetchData])
 
   const handleSave = () => {
     toast.success('Productor actualizado')
