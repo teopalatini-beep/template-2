@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap, BarChart2 } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap, BarChart2, LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase-browser'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -15,6 +16,14 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -65,6 +74,17 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Logout */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/5 transition-all group"
+        >
+          <LogOut size={13} className="shrink-0" />
+          <span className="text-[12px] font-medium">Cerrar sesión</span>
+        </button>
+      </div>
 
       {/* Command palette hint */}
       <div className="px-3 pb-4">
