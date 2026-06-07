@@ -2,21 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap, BarChart2, LogOut } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap, BarChart2, Kanban, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/productores', label: 'Productores', icon: Users },
-  { href: '/campanas', label: 'Campañas', icon: Megaphone },
-  { href: '/campanas/nueva', label: 'Nueva campaña', icon: PlusCircle },
-  { href: '/automatizaciones', label: 'Automatizaciones', icon: Zap },
-  { href: '/reportes', label: 'Reportes', icon: BarChart2 },
-]
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [alertas, setAlertas] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/alertas')
+      .then(r => r.json())
+      .then(d => setAlertas(Array.isArray(d) ? d.length : 0))
+      .catch(() => {})
+  }, [])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -29,6 +29,16 @@ export default function Sidebar() {
     if (href === '/campanas') return pathname === '/campanas' || pathname.startsWith('/campanas/') && !pathname.startsWith('/campanas/nueva')
     return pathname.startsWith(href)
   }
+
+  const navItems = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, badge: 0 },
+    { href: '/productores', label: 'Productores', icon: Users, badge: 0 },
+    { href: '/pipeline', label: 'Pipeline', icon: Kanban, badge: alertas },
+    { href: '/campanas', label: 'Campañas', icon: Megaphone, badge: 0 },
+    { href: '/campanas/nueva', label: 'Nueva campaña', icon: PlusCircle, badge: 0 },
+    { href: '/automatizaciones', label: 'Automatizaciones', icon: Zap, badge: 0 },
+    { href: '/reportes', label: 'Reportes', icon: BarChart2, badge: 0 },
+  ]
 
   return (
     <aside className="w-[220px] flex-shrink-0 bg-[#0f0f0f] border-r border-[#1a1a1a] flex flex-col">
@@ -47,7 +57,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(href)
           return (
             <Link
@@ -65,9 +75,14 @@ export default function Sidebar() {
                   active ? 'text-violet-400' : 'text-zinc-600 group-hover:text-zinc-400'
                 }`}
               />
-              {label}
-              {active && (
-                <div className="ml-auto w-1 h-1 rounded-full bg-violet-400" />
+              <span className="flex-1">{label}</span>
+              {badge > 0 && (
+                <span className="w-4 h-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center tabular-nums shrink-0">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
+              {active && badge === 0 && (
+                <div className="w-1 h-1 rounded-full bg-violet-400" />
               )}
             </Link>
           )
