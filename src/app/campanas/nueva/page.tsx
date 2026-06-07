@@ -111,7 +111,7 @@ function RichEmailEditor({ value, onChange }: { value: string; onChange: (v: str
             [&_ul]:list-disc [&_ul]:ml-5 [&_ul]:space-y-1
             [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
             [&_b]:text-white [&_strong]:text-white"
-          style={{ whiteSpace: 'pre-wrap' }}
+          style={{}}
         />
       ) : (
         <div className="flex-1 overflow-y-auto p-4 bg-[#0a0a0a]">
@@ -216,7 +216,7 @@ export default function NuevaCampanaPage() {
 
   const handleEnviar = async () => {
     if (!titulo.trim()) { toast.error('El título es obligatorio'); return }
-    if (!mensaje.trim() && !mensaje.replace(/<[^>]+>/g, '').trim()) { toast.error('El mensaje no puede estar vacío'); return }
+    if (!mensaje.replace(/<[^>]+>/g, '').trim()) { toast.error('El mensaje no puede estar vacío'); return }
     if (selected.size === 0) { toast.error('Seleccioná al menos un destinatario'); return }
 
     setLoadingEnvio(true)

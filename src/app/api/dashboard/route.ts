@@ -22,7 +22,7 @@ export async function GET() {
     supabase.from('campanas').select('*', { count: 'exact', head: true }).eq('estado', 'enviada').gte('fecha_envio', startOfMonth),
     supabase.from('mensajes').select('*', { count: 'exact', head: true }),
     supabase.from('campanas').select('*').eq('estado', 'enviada').order('fecha_envio', { ascending: false }).limit(5),
-    supabase.from('productores').select('id, pipeline_etapa, valor_estimado').in('pipeline_etapa', ETAPAS_ACTIVAS),
+    supabase.from('productores').select('id, pipeline_etapa, valor_estimado, created_at').in('pipeline_etapa', ETAPAS_ACTIVAS),
     supabase.from('actividades').select('id, tipo, descripcion, created_at, productor_id, productores(nombre)').order('created_at', { ascending: false }).limit(8),
   ])
 
@@ -51,8 +51,7 @@ export async function GET() {
 
     const umbralMs = DIAS_STALE * 86400000
     dealsVencidos = deals.filter(p => {
-      const ref = lastActivity[p.id]
-      if (!ref) return true
+      const ref = lastActivity[p.id] ?? p.created_at
       return Date.now() - new Date(ref).getTime() >= umbralMs
     }).length
   }

@@ -6,13 +6,18 @@ export const dynamic = 'force-dynamic'
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function buildEmailHTML(titulo: string, contenido: string): string {
+  const safeTitle = escapeHtml(titulo)
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${titulo}</title>
+<title>${safeTitle}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
@@ -20,10 +25,10 @@ function buildEmailHTML(titulo: string, contenido: string): string {
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
 
   <!-- Header -->
-  <tr><td style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-radius:12px 12px 0 0;padding:20px 28px">
+  <tr><td style="background:#7c3aed;background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-radius:12px 12px 0 0;padding:20px 28px">
     <table cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background:rgba(255,255,255,0.15);border-radius:8px;padding:5px 10px;margin-right:10px">
+        <td style="background:rgba(255,255,255,0.15);border-radius:8px;padding:5px 10px">
           <span style="color:white;font-weight:900;font-size:16px;letter-spacing:-0.5px">S</span>
         </td>
         <td style="padding-left:10px">
@@ -35,7 +40,7 @@ function buildEmailHTML(titulo: string, contenido: string): string {
 
   <!-- Body -->
   <tr><td style="background:white;padding:32px 28px 28px;color:#111827;font-size:14px;line-height:1.65">
-    <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px">${titulo}</h1>
+    <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px">${safeTitle}</h1>
     <div style="color:#374151;font-size:14px;line-height:1.7">
       ${contenido}
     </div>
@@ -113,6 +118,7 @@ export async function POST(request: Request) {
           to: productor.email,
           subject: titulo,
           html: htmlBody,
+          text: mensaje.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
         })
         if (error) status = 'fallido'
       } catch {
