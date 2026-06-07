@@ -1,12 +1,160 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, Search, CheckSquare, Square, ChevronLeft } from 'lucide-react'
+import {
+  Sparkles, Send, Search, CheckSquare, Square, ChevronLeft,
+  Bold, Italic, Underline, Link2, Image, List, Minus, Heading2, Eye, PenLine,
+} from 'lucide-react'
 import Link from 'next/link'
 import { Productor, Canal } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import { toast } from 'sonner'
+
+// ─── Rich email editor ───────────────────────────────────────────────────────
+
+function ToolbarBtn({ onClick, title, children, active }: {
+  onClick: () => void
+  title: string
+  children: React.ReactNode
+  active?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onMouseDown={e => { e.preventDefault(); onClick() }}
+      title={title}
+      className={`p-1.5 rounded-md transition-all ${active ? 'bg-violet-500/20 text-violet-300' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06]'}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function RichEmailEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit')
+
+  const exec = useCallback((cmd: string, val?: string) => {
+    document.execCommand(cmd, false, val)
+    editorRef.current?.focus()
+    onChange(editorRef.current?.innerHTML ?? '')
+  }, [onChange])
+
+  const insertLink = () => {
+    const url = prompt('URL del enlace:')
+    if (url) exec('createLink', url)
+  }
+
+  const insertImage = () => {
+    const url = prompt('URL de la imagen:')
+    if (url) exec('insertImage', url)
+  }
+
+  const insertHR = () => {
+    exec('insertHTML', '<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>')
+  }
+
+  const formatBlock = (tag: string) => exec('formatBlock', tag)
+
+  // Sync external value changes into the editor only when not focused
+  useEffect(() => {
+    if (editorRef.current && document.activeElement !== editorRef.current) {
+      editorRef.current.innerHTML = value
+    }
+  }, [value])
+
+  return (
+    <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-xl overflow-hidden flex flex-col">
+      {/* Mode toggle + toolbar */}
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1f1f1f] bg-[#141414]">
+        <button
+          type="button"
+          onClick={() => setMode('edit')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${mode === 'edit' ? 'bg-[#1f1f1f] text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+        >
+          <PenLine size={11} /> Editar
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('preview')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${mode === 'preview' ? 'bg-[#1f1f1f] text-zinc-200' : 'text-zinc-600 hover:text-zinc-400'}`}
+        >
+          <Eye size={11} /> Preview
+        </button>
+
+        <div className="h-4 w-px bg-[#2a2a2a] mx-1" />
+
+        {mode === 'edit' && <>
+          <ToolbarBtn onClick={() => exec('bold')} title="Negrita (⌘B)"><Bold size={12} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => exec('italic')} title="Cursiva (⌘I)"><Italic size={12} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => exec('underline')} title="Subrayado (⌘U)"><Underline size={12} /></ToolbarBtn>
+          <div className="h-4 w-px bg-[#2a2a2a] mx-0.5" />
+          <ToolbarBtn onClick={() => formatBlock('h2')} title="Título"><Heading2 size={12} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => exec('insertUnorderedList')} title="Lista"><List size={12} /></ToolbarBtn>
+          <ToolbarBtn onClick={insertHR} title="Separador"><Minus size={12} /></ToolbarBtn>
+          <div className="h-4 w-px bg-[#2a2a2a] mx-0.5" />
+          <ToolbarBtn onClick={insertLink} title="Enlace"><Link2 size={12} /></ToolbarBtn>
+          <ToolbarBtn onClick={insertImage} title="Imagen por URL"><Image size={12} /></ToolbarBtn>
+        </>}
+      </div>
+
+      {mode === 'edit' ? (
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={() => onChange(editorRef.current?.innerHTML ?? '')}
+          className="flex-1 min-h-[220px] p-4 text-[13px] text-zinc-200 focus:outline-none leading-relaxed
+            [&_h2]:text-[18px] [&_h2]:font-bold [&_h2]:text-white [&_h2]:mb-2
+            [&_a]:text-violet-400 [&_a]:underline
+            [&_ul]:list-disc [&_ul]:ml-5 [&_ul]:space-y-1
+            [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
+            [&_b]:text-white [&_strong]:text-white"
+          style={{ whiteSpace: 'pre-wrap' }}
+        />
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4 bg-[#0a0a0a]">
+          <EmailPreviewCard content={value} />
+        </div>
+      )}
+
+      <div className="px-4 py-1.5 border-t border-[#1a1a1a] flex items-center justify-between">
+        <span className="text-[10px] text-zinc-700">HTML · se enviará con template SimplePass</span>
+        <span className="text-[10px] text-zinc-700 tabular-nums">
+          {value.replace(/<[^>]+>/g, '').length} chars
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function EmailPreviewCard({ content }: { content: string }) {
+  return (
+    <div className="max-w-[480px] mx-auto rounded-xl overflow-hidden shadow-xl border border-[#2a2a2a]" style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '6px 10px' }}>
+          <span style={{ color: 'white', fontWeight: 800, fontSize: '15px', letterSpacing: '-0.3px' }}>S</span>
+        </div>
+        <span style={{ color: 'white', fontWeight: 700, fontSize: '15px' }}>SimplePass</span>
+      </div>
+
+      {/* Body */}
+      <div
+        style={{ background: 'white', padding: '28px 28px 24px', color: '#111', fontSize: '14px', lineHeight: '1.65' }}
+        dangerouslySetInnerHTML={{ __html: content || '<p style="color:#aaa">El contenido del email aparecerá acá...</p>' }}
+      />
+
+      {/* Footer */}
+      <div style={{ background: '#f9fafb', padding: '16px 24px', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>SimplePass · Sistema CRM</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function NuevaCampanaPage() {
   const router = useRouter()
@@ -30,7 +178,12 @@ export default function NuevaCampanaPage() {
       const res = await fetch('/api/generate-message', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setMensaje(data.message)
+      // Wrap plain text in basic HTML for the rich editor
+      const html = data.message
+        .split('\n\n')
+        .map((p: string) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+        .join('')
+      setMensaje(html)
       toast.success('Mensaje generado', { id: toastId })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al generar', { id: toastId })
@@ -63,7 +216,7 @@ export default function NuevaCampanaPage() {
 
   const handleEnviar = async () => {
     if (!titulo.trim()) { toast.error('El título es obligatorio'); return }
-    if (!mensaje.trim()) { toast.error('El mensaje no puede estar vacío'); return }
+    if (!mensaje.trim() && !mensaje.replace(/<[^>]+>/g, '').trim()) { toast.error('El mensaje no puede estar vacío'); return }
     if (selected.size === 0) { toast.error('Seleccioná al menos un destinatario'); return }
 
     setLoadingEnvio(true)
@@ -89,7 +242,6 @@ export default function NuevaCampanaPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      {/* Header */}
       <Link href="/campanas" className="inline-flex items-center gap-1.5 text-[12px] text-zinc-600 hover:text-zinc-300 transition-colors mb-5">
         <ChevronLeft size={13} />
         Campañas
@@ -115,7 +267,7 @@ export default function NuevaCampanaPage() {
           {/* Título */}
           <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
             <label className="block text-[10px] font-medium text-zinc-600 uppercase tracking-widest mb-2">
-              Título
+              Título / Asunto
             </label>
             <input
               type="text"
@@ -145,6 +297,7 @@ export default function NuevaCampanaPage() {
                     {canal === c && <div className="w-1.5 h-1.5 rounded-full bg-violet-500" />}
                   </div>
                   <StatusBadge status={c} />
+                  {c === 'email' && <span className="text-[10px] text-emerald-500/70 font-medium">HTML</span>}
                 </button>
               ))}
             </div>
@@ -152,8 +305,10 @@ export default function NuevaCampanaPage() {
 
           {/* Mensaje */}
           <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Mensaje</label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">
+                {canal === 'email' ? 'Contenido del email' : 'Mensaje'}
+              </label>
               <button
                 type="button"
                 onClick={generarConIA}
@@ -164,14 +319,21 @@ export default function NuevaCampanaPage() {
                 {loadingIA ? 'Generando...' : 'Generar con IA'}
               </button>
             </div>
-            <textarea
-              value={mensaje}
-              onChange={e => setMensaje(e.target.value)}
-              rows={11}
-              placeholder="Escribí el mensaje acá o usá la IA para generar uno..."
-              className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-violet-500/40 transition-all resize-none leading-relaxed"
-            />
-            <p className="text-[10px] text-zinc-700 mt-1.5">{mensaje.length} caracteres</p>
+
+            {canal === 'email' ? (
+              <RichEmailEditor value={mensaje} onChange={setMensaje} />
+            ) : (
+              <>
+                <textarea
+                  value={mensaje}
+                  onChange={e => setMensaje(e.target.value)}
+                  rows={11}
+                  placeholder="Escribí el mensaje acá o usá la IA para generar uno..."
+                  className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-violet-500/40 transition-all resize-none leading-relaxed"
+                />
+                <p className="text-[10px] text-zinc-700 mt-1.5">{mensaje.length} caracteres</p>
+              </>
+            )}
           </div>
         </div>
 
