@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Kanban, Mail, Phone, ChevronRight, Plus } from 'lucide-react'
+import { Kanban, Mail, Phone, ChevronRight, Plus, Filter } from 'lucide-react'
 import { Productor, PipelineEtapa } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -14,6 +14,11 @@ const ETAPAS: { key: PipelineEtapa; label: string; color: string; dot: string; b
   { key: 'cerrado',     label: 'Cerrado ✓',   color: 'text-emerald-400', dot: 'bg-emerald-500', border: 'border-emerald-500/25' },
   { key: 'perdido',     label: 'Perdido',     color: 'text-red-400',     dot: 'bg-red-500',     border: 'border-red-500/25' },
 ]
+
+function fmt(n: number) {
+  if (n >= 1000) return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`
+  return `$${n}`
+}
 
 function PipelineCard({ productor, isDragging, onDragStart, onDragEnd }: {
   productor: Productor
@@ -61,6 +66,9 @@ function PipelineCard({ productor, isDragging, onDragStart, onDragEnd }: {
         <div className="flex items-center gap-2">
           {productor.email && <Mail size={10} className="text-zinc-700" />}
           {productor.telefono && <Phone size={10} className="text-zinc-700" />}
+          {productor.valor_estimado != null && productor.valor_estimado > 0 && (
+            <span className="text-[10px] text-emerald-500 font-medium">{fmt(productor.valor_estimado)}</span>
+          )}
         </div>
         <span className="text-[10px] text-zinc-700">{dias === 0 ? 'Hoy' : `${dias}d`}</span>
       </div>
@@ -77,6 +85,7 @@ function KanbanColumn({ etapa, productores, draggedId, onDragStart, onDragEnd, o
   onDrop: (etapaKey: PipelineEtapa) => void
 }) {
   const [isOver, setIsOver] = useState(false)
+  const totalValor = productores.reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
 
   return (
     <div
@@ -91,7 +100,13 @@ function KanbanColumn({ etapa, productores, draggedId, onDragStart, onDragEnd, o
         <span className="text-[11px] text-zinc-600 bg-[#111] rounded-md px-1.5 py-0.5 tabular-nums">{productores.length}</span>
       </div>
 
-      <div className="flex-1 p-2.5 space-y-2 overflow-y-auto max-h-[calc(100vh-260px)] min-h-[80px]">
+      {totalValor > 0 && (
+        <div className="px-4 py-2 border-b border-[#1a1a1a]">
+          <span className="text-[11px] text-emerald-500/70 font-medium tabular-nums">{fmt(totalValor)}</span>
+        </div>
+      )}
+
+      <div className="flex-1 p-2.5 space-y-2 overflow-y-auto max-h-[calc(100vh-300px)] min-h-[80px]">
         {productores.map(p => (
           <PipelineCard
             key={p.id}
@@ -118,12 +133,23 @@ export default function PipelinePage() {
   const [productores, setProductores] = useState<Productor[]>([])
   const [loading, setLoading] = useState(true)
   const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos')
 
   useEffect(() => {
     fetch('/api/productores')
       .then(r => r.json())
       .then(d => { setProductores(d); setLoading(false) })
   }, [])
+
+  const tiposEvento = useMemo(() => {
+    const tipos = productores.map(p => p.tipo_evento).filter(Boolean) as string[]
+    return Array.from(new Set(tipos)).sort()
+  }, [productores])
+
+  const producoresFiltrados = useMemo(() =>
+    filtroTipo === 'todos' ? productores : productores.filter(p => p.tipo_evento === filtroTipo),
+    [productores, filtroTipo]
+  )
 
   const handleDragStart = (id: string, e: React.DragEvent) => {
     setDraggedId(id)
@@ -154,15 +180,17 @@ export default function PipelinePage() {
   }
 
   const porEtapa = (key: PipelineEtapa) =>
-    productores.filter(p => (p.pipeline_etapa ?? 'nuevo') === key)
+    producoresFiltrados.filter(p => (p.pipeline_etapa ?? 'nuevo') === key)
 
-  const enCurso = productores.filter(p => !['cerrado', 'perdido'].includes(p.pipeline_etapa ?? 'nuevo')).length
+  const enCurso = producoresFiltrados.filter(p => !['cerrado', 'perdido'].includes(p.pipeline_etapa ?? 'nuevo')).length
   const cerrados = porEtapa('cerrado').length
-  const tasa = productores.length > 0 ? Math.round((cerrados / productores.length) * 100) : 0
+  const tasa = producoresFiltrados.length > 0 ? Math.round((cerrados / producoresFiltrados.length) * 100) : 0
+  const valorPipeline = producoresFiltrados
+    .filter(p => (p.pipeline_etapa ?? 'nuevo') !== 'perdido')
+    .reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div className="px-8 py-6 border-b border-[#1a1a1a] flex items-center justify-between shrink-0">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -171,7 +199,20 @@ export default function PipelinePage() {
           </div>
           <h1 className="text-xl font-semibold text-white">Pipeline de negocios</h1>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
+          {tiposEvento.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Filter size={12} className="text-zinc-600" />
+              <select
+                value={filtroTipo}
+                onChange={e => setFiltroTipo(e.target.value)}
+                className="bg-[#141414] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[12px] text-zinc-400 focus:outline-none focus:border-violet-500/60 transition-all"
+              >
+                <option value="todos">Todos los tipos</option>
+                {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
           <div className="text-right">
             <p className="text-[11px] text-zinc-600">En curso</p>
             <p className="text-[18px] font-bold text-white tabular-nums">{enCurso}</p>
@@ -184,6 +225,12 @@ export default function PipelinePage() {
             <p className="text-[11px] text-zinc-600">Tasa cierre</p>
             <p className="text-[18px] font-bold text-violet-400 tabular-nums">{tasa}%</p>
           </div>
+          {valorPipeline > 0 && (
+            <div className="text-right">
+              <p className="text-[11px] text-zinc-600">Valor pipeline</p>
+              <p className="text-[18px] font-bold text-emerald-400 tabular-nums">{fmt(valorPipeline)}</p>
+            </div>
+          )}
           <Link
             href="/productores"
             className="flex items-center gap-2 px-3.5 py-2 bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
@@ -194,7 +241,6 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Kanban Board */}
       <div className="flex gap-4 p-6 overflow-x-auto flex-1">
         {loading
           ? ETAPAS.map(e => <div key={e.key} className="w-[240px] shrink-0 h-64 bg-[#141414] border border-[#1a1a1a] rounded-2xl animate-pulse" />)
@@ -215,6 +261,7 @@ export default function PipelinePage() {
       <div className="px-8 py-3 border-t border-[#1a1a1a] shrink-0">
         <p className="text-[11px] text-zinc-700">
           Arrastrá los cards entre columnas · Los nuevos productores entran en <span className="text-zinc-500">Nuevo</span>
+          {filtroTipo !== 'todos' && <span className="text-violet-400"> · Filtrando: {filtroTipo}</span>}
         </p>
       </div>
     </div>

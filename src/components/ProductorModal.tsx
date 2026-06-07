@@ -15,6 +15,7 @@ const schema = z.object({
   tipo_evento: z.string().optional(),
   estado: z.enum(['prospecto', 'activo', 'inactivo']),
   notas: z.string().optional(),
+  valor_estimado: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -65,9 +66,10 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
         tipo_evento: productor.tipo_evento ?? '',
         estado: productor.estado,
         notas: productor.notas ?? '',
+        valor_estimado: productor.valor_estimado != null ? String(productor.valor_estimado) : '',
       } : {
         nombre: '', empresa: '', telefono: '', email: '',
-        tipo_evento: '', estado: 'prospecto', notas: '',
+        tipo_evento: '', estado: 'prospecto', notas: '', valor_estimado: '',
       })
       setServerError('')
     }
@@ -83,7 +85,10 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          valor_estimado: data.valor_estimado ? Number(data.valor_estimado) : null,
+        }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -135,14 +140,22 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
             <Field label="Email" error={errors.email?.message}>
               <input {...register('email')} type="email" placeholder="juan@eventos.com" className={inputClass} />
             </Field>
-            <div className="col-span-2">
-              <Field label="Tipo de evento" error={errors.tipo_evento?.message}>
-                <select {...register('tipo_evento')} className={inputClass}>
-                  <option value="">Seleccionar...</option>
-                  {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </Field>
-            </div>
+            <Field label="Tipo de evento" error={errors.tipo_evento?.message}>
+              <select {...register('tipo_evento')} className={inputClass}>
+                <option value="">Seleccionar...</option>
+                {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+            <Field label="Valor estimado (USD)" error={errors.valor_estimado?.message}>
+              <input
+                {...register('valor_estimado')}
+                type="number"
+                min="0"
+                step="100"
+                placeholder="5000"
+                className={inputClass}
+              />
+            </Field>
             <div className="col-span-2">
               <Field label="Notas internas" error={errors.notas?.message}>
                 <textarea

@@ -13,6 +13,7 @@ export interface Productor {
   pais: string | null
   tags: string[]
   pipeline_etapa: PipelineEtapa
+  valor_estimado: number | null
   created_at: string
 }
 
@@ -75,5 +76,19 @@ export interface Actividad {
   productor_id: string
   tipo: TipoActividad
   descripcion: string
+  created_at: string
+}
+
+export type EstadoEvento = 'pre_evento' | 'en_vivo' | 'finalizado'
+
+export interface Evento {
+  id: string
+  productor_id: string
+  nombre: string
+  lugar: string | null
+  fecha_evento: string | null
+  estado: EstadoEvento
+  notas: string | null
+  capacidad: number | null
   created_at: string
 }
