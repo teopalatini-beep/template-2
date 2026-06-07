@@ -3,8 +3,27 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, Users, Megaphone, PlusCircle, Ticket, Search, Zap, BarChart2, Kanban, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Megaphone, PlusCircle, Search, Zap, BarChart2, Kanban, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
+
+function SimplePassLogo() {
+  return (
+    <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
+      <rect x="1" y="5" width="34" height="26" rx="5" fill="#7c3aed"/>
+      <rect x="1" y="5" width="34" height="26" rx="5" fill="url(#sp-grad)"/>
+      <circle cx="1" cy="18" r="3" fill="#0f0f0f"/>
+      <circle cx="35" cy="18" r="3" fill="#0f0f0f"/>
+      <line x1="13" y1="5" x2="13" y2="31" stroke="#6d28d9" strokeWidth="0.75" strokeDasharray="2 2"/>
+      <text x="21" y="22" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="-apple-system,BlinkMacSystemFont,sans-serif" letterSpacing="-0.5">S</text>
+      <defs>
+        <linearGradient id="sp-grad" x1="1" y1="5" x2="35" y2="31" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#8b5cf6"/>
+          <stop offset="100%" stopColor="#6d28d9"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -43,14 +62,12 @@ export default function Sidebar() {
   return (
     <aside className="w-[220px] flex-shrink-0 bg-[#0f0f0f] border-r border-[#1a1a1a] flex flex-col">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-[#1a1a1a]">
+      <div className="px-4 py-4 border-b border-[#1a1a1a]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center shadow-lg shadow-violet-900/30">
-            <Ticket size={13} className="text-white" />
-          </div>
+          <SimplePassLogo />
           <div>
-            <p className="text-[13px] font-semibold text-white tracking-tight leading-none">CRM Productora</p>
-            <p className="text-[10px] text-zinc-600 leading-none mt-0.5">CRM</p>
+            <p className="text-[14px] font-bold text-white tracking-tight leading-none">SimplePass</p>
+            <p className="text-[10px] text-violet-500 leading-none mt-0.5 font-semibold uppercase tracking-wider">CRM</p>
           </div>
         </div>
       </div>

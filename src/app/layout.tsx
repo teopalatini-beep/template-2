@@ -8,7 +8,7 @@ import CommandPalette from '@/components/CommandPalette'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'Ticketera CRM',
+  title: 'SimplePass CRM',
   description: 'CRM interno para gestión de productores de eventos',
 }
 
