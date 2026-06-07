@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
-import { Kanban, Mail, Phone, ChevronRight, Plus, Filter, AlertTriangle } from 'lucide-react'
+import { Kanban, Mail, Phone, ChevronRight, Plus, Filter, AlertTriangle, StickyNote, X, Send } from 'lucide-react'
 import { Productor, PipelineEtapa } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -20,37 +20,80 @@ function fmt(n: number) {
   return `$${n}`
 }
 
-function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd }: {
+function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd, onNoteAdded }: {
   productor: Productor
   isDragging: boolean
   isStale: boolean
   diasStale: number
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
+  onNoteAdded: (id: string) => void
 }) {
+  const [showNote, setShowNote] = useState(false)
+  const [nota, setNota] = useState('')
+  const [saving, setSaving] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
   const dias = Math.floor((Date.now() - new Date(productor.created_at).getTime()) / 86400000)
+
+  useEffect(() => {
+    if (showNote) textareaRef.current?.focus()
+  }, [showNote])
+
+  const handleSaveNote = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!nota.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/productores/${productor.id}/actividades`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'nota', descripcion: nota.trim() }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Nota guardada')
+      setNota('')
+      setShowNote(false)
+      onNoteAdded(productor.id)
+    } catch {
+      toast.error('Error al guardar la nota')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      className={`group bg-[#0f0f0f] border rounded-xl p-3.5 cursor-grab active:cursor-grabbing transition-all select-none ${
-        isDragging ? 'opacity-40 scale-95' : ''
-      } ${isStale ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}
+      draggable={!showNote}
+      onDragStart={showNote ? undefined : onDragStart}
+      onDragEnd={showNote ? undefined : onDragEnd}
+      className={`group bg-[#0f0f0f] border rounded-xl p-3.5 transition-all select-none ${
+        showNote ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
+      } ${isDragging ? 'opacity-40 scale-95' : ''} ${
+        isStale ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'
+      }`}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-zinc-100 truncate">{productor.nombre}</p>
           {productor.empresa && <p className="text-[11px] text-zinc-600 truncate">{productor.empresa}</p>}
         </div>
-        <Link
-          href={`/productores/${productor.id}`}
-          onClick={e => e.stopPropagation()}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-700 hover:text-violet-400 shrink-0"
-        >
-          <ChevronRight size={13} />
-        </Link>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); setShowNote(v => !v) }}
+            className={`text-zinc-700 hover:text-violet-400 transition-colors ${showNote ? 'text-violet-400' : ''}`}
+            title="Nota rápida"
+          >
+            <StickyNote size={12} />
+          </button>
+          <Link
+            href={`/productores/${productor.id}`}
+            onClick={e => e.stopPropagation()}
+            className="text-zinc-700 hover:text-violet-400"
+          >
+            <ChevronRight size={13} />
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1 mb-2">
@@ -84,11 +127,52 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
           {!isStale && <span className="text-[10px] text-zinc-700">{dias === 0 ? 'Hoy' : `${dias}d`}</span>}
         </div>
       </div>
+
+      {showNote && (
+        <form
+          onSubmit={handleSaveNote}
+          onClick={e => e.stopPropagation()}
+          className="mt-2.5 pt-2.5 border-t border-[#1f1f1f]"
+        >
+          <textarea
+            ref={textareaRef}
+            value={nota}
+            onChange={e => setNota(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveNote(e as unknown as React.FormEvent)
+              if (e.key === 'Escape') { setShowNote(false); setNota('') }
+            }}
+            placeholder="Escribí una nota..."
+            rows={2}
+            className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2.5 py-2 text-[12px] text-zinc-300 placeholder-zinc-700 resize-none focus:outline-none focus:border-violet-500/50 transition-colors"
+          />
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-[10px] text-zinc-700">⌘↵ para guardar</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setShowNote(false); setNota('') }}
+                className="text-zinc-600 hover:text-zinc-400 transition-colors"
+              >
+                <X size={12} />
+              </button>
+              <button
+                type="submit"
+                disabled={!nota.trim() || saving}
+                className="flex items-center gap-1 px-2 py-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white rounded-md text-[11px] font-medium transition-all"
+              >
+                <Send size={9} />
+                {saving ? '...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
     </div>
   )
 }
 
-function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop }: {
+function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop, onNoteAdded }: {
   etapa: typeof ETAPAS[0]
   productores: Productor[]
   draggedId: string | null
@@ -97,6 +181,7 @@ function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDr
   onDragStart: (id: string, e: React.DragEvent) => void
   onDragEnd: () => void
   onDrop: (etapaKey: PipelineEtapa) => void
+  onNoteAdded: (id: string) => void
 }) {
   const [isOver, setIsOver] = useState(false)
   const totalValor = productores.reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
@@ -136,6 +221,7 @@ function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDr
             diasStale={staleData[p.id] ?? 0}
             onDragStart={e => onDragStart(p.id, e)}
             onDragEnd={onDragEnd}
+            onNoteAdded={onNoteAdded}
           />
         ))}
         {isOver && draggedId && (
@@ -156,6 +242,7 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [filtroTipo, setFiltroTipo] = useState<string>('todos')
+  const [filtroSoloAlertas, setFiltroSoloAlertas] = useState(false)
   const [alertas, setAlertas] = useState<{ id: string; nombre: string; dias_sin_actividad: number }[]>([])
 
   useEffect(() => {
@@ -177,10 +264,15 @@ export default function PipelinePage() {
     return Array.from(new Set(tipos)).sort()
   }, [productores])
 
-  const producoresFiltrados = useMemo(() =>
-    filtroTipo === 'todos' ? productores : productores.filter(p => p.tipo_evento === filtroTipo),
-    [productores, filtroTipo]
-  )
+  const producoresFiltrados = useMemo(() => {
+    let result = filtroTipo === 'todos' ? productores : productores.filter(p => p.tipo_evento === filtroTipo)
+    if (filtroSoloAlertas) result = result.filter(p => staleIds.has(p.id))
+    return result
+  }, [productores, filtroTipo, filtroSoloAlertas, staleIds])
+
+  const handleNoteAdded = (id: string) => {
+    setAlertas(prev => prev.filter(a => a.id !== id))
+  }
 
   const handleDragStart = (id: string, e: React.DragEvent) => {
     setDraggedId(id)
@@ -220,6 +312,8 @@ export default function PipelinePage() {
     .filter(p => (p.pipeline_etapa ?? 'nuevo') !== 'perdido')
     .reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
 
+  const filtrosActivos = filtroTipo !== 'todos' || filtroSoloAlertas
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-8 py-6 border-b border-[#1a1a1a] flex items-center justify-between shrink-0">
@@ -230,10 +324,12 @@ export default function PipelinePage() {
           </div>
           <h1 className="text-xl font-semibold text-white">Pipeline de negocios</h1>
         </div>
-        <div className="flex items-center gap-5">
-          {tiposEvento.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Filter size={12} className="text-zinc-600" />
+        <div className="flex items-center gap-4">
+          {/* Filtros */}
+          <div className="flex items-center gap-2">
+            <Filter size={12} className={filtrosActivos ? 'text-violet-400' : 'text-zinc-600'} />
+
+            {tiposEvento.length > 0 && (
               <select
                 value={filtroTipo}
                 onChange={e => setFiltroTipo(e.target.value)}
@@ -242,8 +338,28 @@ export default function PipelinePage() {
                 <option value="todos">Todos los tipos</option>
                 {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-            </div>
-          )}
+            )}
+
+            <button
+              onClick={() => setFiltroSoloAlertas(v => !v)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium transition-all ${
+                filtroSoloAlertas
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                  : 'bg-[#141414] border-[#2a2a2a] text-zinc-500 hover:text-zinc-300 hover:border-[#3a3a3a]'
+              }`}
+            >
+              <AlertTriangle size={11} />
+              Sin actividad
+              {alertas.length > 0 && (
+                <span className={`text-[10px] font-bold px-1 rounded-full ${filtroSoloAlertas ? 'bg-amber-500/20 text-amber-400' : 'bg-[#1f1f1f] text-zinc-500'}`}>
+                  {alertas.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="h-6 w-px bg-[#1f1f1f]" />
+
           <div className="text-right">
             <p className="text-[11px] text-zinc-600">En curso</p>
             <p className="text-[18px] font-bold text-white tabular-nums">{enCurso}</p>
@@ -273,7 +389,7 @@ export default function PipelinePage() {
       </div>
 
       {/* Alerta de seguimiento */}
-      {alertas.length > 0 && (
+      {alertas.length > 0 && !filtroSoloAlertas && (
         <div className="mx-6 mt-4 shrink-0 flex items-center gap-3 px-4 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
           <p className="text-[12px] text-amber-400 flex-1">
@@ -284,9 +400,12 @@ export default function PipelinePage() {
               </span>
             )}
           </p>
-          <Link href="/productores" className="text-[11px] text-amber-500 hover:text-amber-400 font-medium shrink-0">
-            Ver productores →
-          </Link>
+          <button
+            onClick={() => setFiltroSoloAlertas(true)}
+            className="text-[11px] text-amber-500 hover:text-amber-400 font-medium shrink-0"
+          >
+            Filtrar →
+          </button>
         </div>
       )}
 
@@ -304,6 +423,7 @@ export default function PipelinePage() {
                 onDragStart={handleDragStart}
                 onDragEnd={() => setDraggedId(null)}
                 onDrop={handleDrop}
+                onNoteAdded={handleNoteAdded}
               />
             ))
         }
@@ -311,8 +431,8 @@ export default function PipelinePage() {
 
       <div className="px-8 py-3 border-t border-[#1a1a1a] shrink-0">
         <p className="text-[11px] text-zinc-700">
-          Arrastrá los cards entre columnas · Los nuevos productores entran en <span className="text-zinc-500">Nuevo</span>
-          {filtroTipo !== 'todos' && <span className="text-violet-400"> · Filtrando: {filtroTipo}</span>}
+          Arrastrá los cards entre columnas · Hover en un card para agregar nota rápida
+          {filtrosActivos && <span className="text-violet-400"> · Filtros activos</span>}
         </p>
       </div>
     </div>
