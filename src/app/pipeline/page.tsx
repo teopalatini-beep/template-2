@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Kanban, Mail, Phone, ChevronRight, Plus, Filter } from 'lucide-react'
+import { Kanban, Mail, Phone, ChevronRight, Plus, Filter, AlertTriangle } from 'lucide-react'
 import { Productor, PipelineEtapa } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -20,9 +20,11 @@ function fmt(n: number) {
   return `$${n}`
 }
 
-function PipelineCard({ productor, isDragging, onDragStart, onDragEnd }: {
+function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd }: {
   productor: Productor
   isDragging: boolean
+  isStale: boolean
+  diasStale: number
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
 }) {
@@ -33,7 +35,9 @@ function PipelineCard({ productor, isDragging, onDragStart, onDragEnd }: {
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`group bg-[#0f0f0f] border border-[#1f1f1f] hover:border-[#2a2a2a] rounded-xl p-3.5 cursor-grab active:cursor-grabbing transition-all select-none ${isDragging ? 'opacity-40 scale-95' : ''}`}
+      className={`group bg-[#0f0f0f] border rounded-xl p-3.5 cursor-grab active:cursor-grabbing transition-all select-none ${
+        isDragging ? 'opacity-40 scale-95' : ''
+      } ${isStale ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'}`}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0 flex-1">
@@ -70,22 +74,33 @@ function PipelineCard({ productor, isDragging, onDragStart, onDragEnd }: {
             <span className="text-[10px] text-emerald-500 font-medium">{fmt(productor.valor_estimado)}</span>
           )}
         </div>
-        <span className="text-[10px] text-zinc-700">{dias === 0 ? 'Hoy' : `${dias}d`}</span>
+        <div className="flex items-center gap-1.5">
+          {isStale && (
+            <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
+              <AlertTriangle size={9} />
+              {diasStale}d sin contacto
+            </span>
+          )}
+          {!isStale && <span className="text-[10px] text-zinc-700">{dias === 0 ? 'Hoy' : `${dias}d`}</span>}
+        </div>
       </div>
     </div>
   )
 }
 
-function KanbanColumn({ etapa, productores, draggedId, onDragStart, onDragEnd, onDrop }: {
+function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop }: {
   etapa: typeof ETAPAS[0]
   productores: Productor[]
   draggedId: string | null
+  staleIds: Set<string>
+  staleData: Record<string, number>
   onDragStart: (id: string, e: React.DragEvent) => void
   onDragEnd: () => void
   onDrop: (etapaKey: PipelineEtapa) => void
 }) {
   const [isOver, setIsOver] = useState(false)
   const totalValor = productores.reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
+  const staleCount = productores.filter(p => staleIds.has(p.id)).length
 
   return (
     <div
@@ -97,6 +112,11 @@ function KanbanColumn({ etapa, productores, draggedId, onDragStart, onDragEnd, o
       <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-[#1a1a1a]">
         <div className={`w-2 h-2 rounded-full shrink-0 ${etapa.dot}`} />
         <span className={`text-[12px] font-semibold flex-1 ${etapa.color}`}>{etapa.label}</span>
+        {staleCount > 0 && (
+          <span className="text-[10px] text-amber-500 font-medium flex items-center gap-0.5">
+            <AlertTriangle size={9} />{staleCount}
+          </span>
+        )}
         <span className="text-[11px] text-zinc-600 bg-[#111] rounded-md px-1.5 py-0.5 tabular-nums">{productores.length}</span>
       </div>
 
@@ -112,6 +132,8 @@ function KanbanColumn({ etapa, productores, draggedId, onDragStart, onDragEnd, o
             key={p.id}
             productor={p}
             isDragging={draggedId === p.id}
+            isStale={staleIds.has(p.id)}
+            diasStale={staleData[p.id] ?? 0}
             onDragStart={e => onDragStart(p.id, e)}
             onDragEnd={onDragEnd}
           />
@@ -134,12 +156,21 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [filtroTipo, setFiltroTipo] = useState<string>('todos')
+  const [alertas, setAlertas] = useState<{ id: string; nombre: string; dias_sin_actividad: number }[]>([])
 
   useEffect(() => {
-    fetch('/api/productores')
-      .then(r => r.json())
-      .then(d => { setProductores(d); setLoading(false) })
+    Promise.all([
+      fetch('/api/productores').then(r => r.json()),
+      fetch('/api/alertas').then(r => r.json()),
+    ]).then(([prods, alts]) => {
+      setProductores(prods)
+      setAlertas(Array.isArray(alts) ? alts : [])
+      setLoading(false)
+    })
   }, [])
+
+  const staleIds = useMemo(() => new Set(alertas.map(a => a.id)), [alertas])
+  const staleData = useMemo(() => Object.fromEntries(alertas.map(a => [a.id, a.dias_sin_actividad])), [alertas])
 
   const tiposEvento = useMemo(() => {
     const tipos = productores.map(p => p.tipo_evento).filter(Boolean) as string[]
@@ -241,6 +272,24 @@ export default function PipelinePage() {
         </div>
       </div>
 
+      {/* Alerta de seguimiento */}
+      {alertas.length > 0 && (
+        <div className="mx-6 mt-4 shrink-0 flex items-center gap-3 px-4 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
+          <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+          <p className="text-[12px] text-amber-400 flex-1">
+            <span className="font-semibold">{alertas.length} deal{alertas.length > 1 ? 's' : ''}</span> sin actividad hace más de 7 días
+            {alertas.length <= 3 && (
+              <span className="text-amber-500/70 ml-1">
+                · {alertas.map(a => a.nombre ?? '').join(', ')}
+              </span>
+            )}
+          </p>
+          <Link href="/productores" className="text-[11px] text-amber-500 hover:text-amber-400 font-medium shrink-0">
+            Ver productores →
+          </Link>
+        </div>
+      )}
+
       <div className="flex gap-4 p-6 overflow-x-auto flex-1">
         {loading
           ? ETAPAS.map(e => <div key={e.key} className="w-[240px] shrink-0 h-64 bg-[#141414] border border-[#1a1a1a] rounded-2xl animate-pulse" />)
@@ -250,6 +299,8 @@ export default function PipelinePage() {
                 etapa={etapa}
                 productores={porEtapa(etapa.key)}
                 draggedId={draggedId}
+                staleIds={staleIds}
+                staleData={staleData}
                 onDragStart={handleDragStart}
                 onDragEnd={() => setDraggedId(null)}
                 onDrop={handleDrop}
