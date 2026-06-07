@@ -67,3 +67,13 @@ export interface Proyecto {
   fecha_evento: string | null
   created_at: string
 }
+
+export type TipoActividad = 'llamada' | 'reunion' | 'nota' | 'email'
+
+export interface Actividad {
+  id: string
+  productor_id: string
+  tipo: TipoActividad
+  descripcion: string
+  created_at: string
+}
