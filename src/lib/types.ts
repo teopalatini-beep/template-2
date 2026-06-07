@@ -1,4 +1,5 @@
 export type EstadoProductor = 'prospecto' | 'activo' | 'inactivo'
+export type PipelineEtapa = 'nuevo' | 'contactado' | 'propuesta' | 'negociacion' | 'cerrado' | 'perdido'
 
 export interface Productor {
   id: string
@@ -9,6 +10,9 @@ export interface Productor {
   tipo_evento: string | null
   estado: EstadoProductor
   notas: string | null
+  pais: string | null
+  tags: string[]
+  pipeline_etapa: PipelineEtapa
   created_at: string
 }
 
@@ -38,4 +42,28 @@ export interface Mensaje {
   created_at: string
   productores?: Productor
   campanas?: Campana
+}
+
+export type EstadoCliente = 'lead' | 'activo' | 'pausado'
+
+export interface Cliente {
+  id: string
+  nombre: string
+  empresa: string | null
+  email: string | null
+  telefono: string | null
+  estado: EstadoCliente
+  created_at: string
+}
+
+export type EstadoProyecto = 'pre_evento' | 'evento' | 'conclusion'
+
+export interface Proyecto {
+  id: string
+  cliente_id: string
+  nombre: string
+  servicio: string
+  estado: EstadoProyecto
+  fecha_evento: string | null
+  created_at: string
 }
