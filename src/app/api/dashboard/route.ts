@@ -7,7 +7,7 @@ export async function GET() {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  const [totalProductores, campanasEstesMes, totalMensajes, ultimasCampanas] = await Promise.all([
+  const [totalProductores, campanasEsteMes, totalMensajes, ultimasCampanas] = await Promise.all([
     supabase.from('productores').select('*', { count: 'exact', head: true }),
     supabase
       .from('campanas')
@@ -25,7 +25,7 @@ export async function GET() {
 
   return NextResponse.json({
     totalProductores: totalProductores.count ?? 0,
-    campanasEsteMes: campanasEstesMes.count ?? 0,
+    campanasEsteMes: campanasEsteMes.count ?? 0,
     totalMensajes: totalMensajes.count ?? 0,
     ultimasCampanas: ultimasCampanas.data ?? [],
   })

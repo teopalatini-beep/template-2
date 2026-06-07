@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List, Upload, Download } from 'lucide-react'
 import { Productor } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
 import ConfirmModal from '@/components/ConfirmModal'
+import ImportModal from '@/components/ImportModal'
 import { SkeletonTable } from '@/components/Skeleton'
 import { toast } from 'sonner'
 
@@ -83,9 +84,25 @@ export default function ProductoresPage() {
   const [tipoFilter, setTipoFilter] = useState('')
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editProductor, setEditProductor] = useState<Productor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Productor | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const exportCSV = () => {
+    const headers = ['nombre', 'empresa', 'email', 'telefono', 'tipo_evento', 'pais', 'estado', 'tags', 'notas']
+    const rows = productores.map(p => [
+      p.nombre, p.empresa ?? '', p.email ?? '', p.telefono ?? '',
+      p.tipo_evento ?? '', p.pais ?? '', p.estado,
+      (p.tags ?? []).join(';'), p.notas ?? '',
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `productores_${new Date().toISOString().split('T')[0]}.csv`; a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`${productores.length} productores exportados`)
+  }
 
   const fetchProductores = useCallback(async () => {
     const res = await fetch('/api/productores')
@@ -139,13 +156,23 @@ export default function ProductoresPage() {
             <span className="ml-2 text-[13px] font-normal text-zinc-600">{productores.length}</span>
           </h1>
         </div>
-        <button
-          onClick={() => { setEditProductor(null); setModalOpen(true) }}
-          className="flex items-center gap-2 px-3.5 py-2 bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
-        >
-          <Plus size={14} />
-          Agregar
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-zinc-200 text-[13px] font-medium rounded-lg transition-all">
+            <Download size={13} />
+            Exportar
+          </button>
+          <button onClick={() => setImportOpen(true)} className="flex items-center gap-2 px-3 py-2 bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-zinc-200 text-[13px] font-medium rounded-lg transition-all">
+            <Upload size={13} />
+            Importar
+          </button>
+          <button
+            onClick={() => { setEditProductor(null); setModalOpen(true) }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
+          >
+            <Plus size={14} />
+            Agregar
+          </button>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -273,6 +300,11 @@ export default function ProductoresPage() {
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
         productor={editProductor}
+      />
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { fetchProductores(); setImportOpen(false) }}
       />
 
       <ConfirmModal

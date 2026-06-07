@@ -3,9 +3,14 @@ interface StatusBadgeProps {
 }
 
 const config: Record<string, { label: string; className: string }> = {
+  lead:       { label: 'Lead',       className: 'bg-amber-500/10  text-amber-400  border-amber-500/15'  },
   prospecto:  { label: 'Prospecto',  className: 'bg-amber-500/10  text-amber-400  border-amber-500/15'  },
   activo:     { label: 'Activo',     className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' },
+  pausado:    { label: 'Pausado',    className: 'bg-zinc-500/10   text-zinc-400   border-zinc-500/15'   },
   inactivo:   { label: 'Inactivo',   className: 'bg-zinc-500/10   text-zinc-400   border-zinc-500/15'   },
+  pre_evento: { label: 'Pre Evento', className: 'bg-sky-500/10    text-sky-400    border-sky-500/15'    },
+  evento:     { label: 'Evento',     className: 'bg-violet-500/10 text-violet-400 border-violet-500/15' },
+  conclusion: { label: 'Conclusión', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' },
   borrador:   { label: 'Borrador',   className: 'bg-zinc-500/10   text-zinc-400   border-zinc-500/15'   },
   enviada:    { label: 'Enviada',    className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' },
   enviado:    { label: 'Enviado',    className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' },
