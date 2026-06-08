@@ -175,7 +175,11 @@ export default function NuevaCampanaPage() {
     setLoadingIA(true)
     const toastId = toast.loading('Generando mensaje con IA...')
     try {
-      const res = await fetch('/api/generate-message', { method: 'POST' })
+      const res = await fetch('/api/generate-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo, canal }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       // Wrap plain text in basic HTML for the rich editor
