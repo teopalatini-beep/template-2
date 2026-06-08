@@ -232,7 +232,11 @@ export default function NuevaCampanaPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Campaña enviada exitosamente', { id: toastId })
-      router.push(`/campanas/${data.campana_id}`)
+      if (data.campana_id) {
+        router.push(`/campanas/${data.campana_id}`)
+      } else {
+        router.push('/campanas')
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al enviar', { id: toastId })
     } finally {
