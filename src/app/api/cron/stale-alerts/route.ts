@@ -14,9 +14,13 @@ const ETAPA_LABELS: Record<string, string> = {
   negociacion: 'Negociación',
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -62,11 +66,11 @@ export async function GET(request: Request) {
 
   const rows = stale.map(p =>
     `<tr style="border-bottom:1px solid #2a2a2a">
-      <td style="padding:10px 14px;color:#e4e4e7;font-size:13px">${p.nombre}</td>
-      <td style="padding:10px 14px;color:#71717a;font-size:13px">${p.empresa ?? '—'}</td>
+      <td style="padding:10px 14px;color:#e4e4e7;font-size:13px">${escapeHtml(p.nombre)}</td>
+      <td style="padding:10px 14px;color:#71717a;font-size:13px">${escapeHtml(p.empresa ?? '—')}</td>
       <td style="padding:10px 14px;font-size:13px">
         <span style="color:#a78bfa;background:#1e1b4b;padding:2px 8px;border-radius:6px;font-size:11px">
-          ${ETAPA_LABELS[p.pipeline_etapa] ?? p.pipeline_etapa}
+          ${escapeHtml(ETAPA_LABELS[p.pipeline_etapa] ?? p.pipeline_etapa)}
         </span>
       </td>
       <td style="padding:10px 14px;color:#f59e0b;font-size:13px;font-weight:600">${p.dias}d</td>
@@ -99,12 +103,13 @@ export async function GET(request: Request) {
           </thead>
           <tbody>${rows}</tbody>
         </table>
+        ${process.env.NEXT_PUBLIC_APP_URL ? `
         <div style="padding:20px 28px;border-top:1px solid #1f1f1f;text-align:center">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL ?? ''}/pipeline"
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/pipeline"
              style="display:inline-block;padding:10px 24px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500">
             Ver pipeline →
           </a>
-        </div>
+        </div>` : ''}
         <div style="padding:16px 28px;border-top:1px solid #1f1f1f">
           <p style="margin:0;font-size:11px;color:#3f3f46;text-align:center">
             CRM Productora · Alerta diaria automática
