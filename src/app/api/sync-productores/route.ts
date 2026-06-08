@@ -28,16 +28,7 @@ function pick(row: Record<string, unknown>, candidates: string[]): string | null
   return null
 }
 
-export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && authHeader !== `Bearer ${process.env.SYNC_SECRET}`) {
-    // Allow from internal calls without auth in dev
-    const origin = request.headers.get('origin') ?? ''
-    if (!origin.includes('localhost') && !origin.includes('127.0.0.1')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
-
+export async function POST() {
   const host     = process.env.SIMPLEPASS_MYSQL_HOST
   const user     = process.env.SIMPLEPASS_MYSQL_USER
   const password = process.env.SIMPLEPASS_MYSQL_PASSWORD
