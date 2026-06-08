@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List, Upload, Download } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List, Upload, Download, RefreshCw } from 'lucide-react'
 import { Productor } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
@@ -88,6 +88,26 @@ export default function ProductoresPage() {
   const [editProductor, setEditProductor] = useState<Productor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Productor | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+
+  const syncFromSimplePass = async () => {
+    setSyncing(true)
+    const toastId = toast.loading('Sincronizando desde SimplePass...')
+    try {
+      const res = await fetch('/api/sync-productores', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(
+        `Sync completo · ${data.importados} importados · ${data.ya_existian ?? 0} ya existían`,
+        { id: toastId, duration: 6000 }
+      )
+      fetchProductores()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al sincronizar', { id: toastId })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const exportCSV = () => {
     const headers = ['nombre', 'empresa', 'email', 'telefono', 'tipo_evento', 'pais', 'estado', 'tags', 'notas']
@@ -157,6 +177,14 @@ export default function ProductoresPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={syncFromSimplePass}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 bg-violet-600/10 hover:bg-violet-600/20 border border-violet-500/25 text-violet-400 hover:text-violet-300 text-[13px] font-medium rounded-lg transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Sincronizando...' : 'Sync SimplePass'}
+          </button>
           <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-zinc-200 text-[13px] font-medium rounded-lg transition-all">
             <Download size={13} />
             Exportar
