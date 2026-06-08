@@ -3,7 +3,13 @@ import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function GET(_: Request, { params }: { params: { id: string } }) {
+  if (!UUID_RE.test(params.id)) {
+    return NextResponse.json({ error: `ID de campaña inválido: "${params.id}"` }, { status: 400 })
+  }
+
   const { data: campana, error: campanaError } = await supabase
     .from('campanas')
     .select('*')
@@ -18,7 +24,9 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     .eq('campana_id', params.id)
     .order('enviado_at', { ascending: false })
 
-  const productorIds = Array.from(new Set((mensajes ?? []).map((m: { productor_id: string }) => m.productor_id)))
+  const productorIds = Array.from(
+    new Set((mensajes ?? []).map((m: { productor_id: string }) => m.productor_id))
+  ).filter(id => UUID_RE.test(id))
 
   let productoresMap: Record<string, { nombre: string; empresa: string | null }> = {}
   if (productorIds.length > 0) {
