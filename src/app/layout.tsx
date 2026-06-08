@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
+import { Inter, Montserrat } from 'next/font/google'
+import '@/styles/globals.scss'
 import Sidebar from '@/components/Sidebar'
 import { Toaster } from 'sonner'
 import CommandPalette from '@/components/CommandPalette'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', weight: ['400', '500', '600', '700'] })
 
 export const metadata: Metadata = {
   title: 'SimplePass CRM',
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={inter.variable}>
+    <html lang="es" className={`${inter.variable} ${montserrat.variable}`}>
       <body className="font-sans antialiased">
         <div className="flex h-screen overflow-hidden bg-[#0a0a0a]">
           <Sidebar />

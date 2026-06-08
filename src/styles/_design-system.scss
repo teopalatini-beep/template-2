@@ -1,0 +1,543 @@
+// ============================================
+// SIMPLEPASS WEB — DESIGN SYSTEM
+// ============================================
+//
+// Uso en un .module.scss:
+//   @use '@/styles/design-system' as *;
+//
+// STACK: Next.js · React · SCSS Modules · Framer Motion · @iconify/react
+// FUENTE: Montserrat (400, 500, 600, 700)
+//
+// ============================================
+
+@forward 'variables';
+@use 'variables' as *;
+
+// ============================================
+// 1. PALETA DE COLORES
+// ============================================
+
+// Colores de marca extendidos
+$color-primary-muted: #a53aa2;
+$color-primary-darker: #65126A;
+
+// Fondos
+$bg-page: #f5f5f5;
+$bg-card: #ffffff;
+$bg-overlay: rgba(153, 65, 157, 0.1);
+$bg-highlight: rgba(153, 65, 157, 0.15);
+$bg-subtle: rgba(153, 65, 157, 0.05);
+$bg-glass: rgba(255, 255, 255, 0.95);
+
+// Texto
+$text-primary: #1b1b1b;
+$text-secondary: #666666;
+$text-muted: #999999;
+$text-light: #ffffff;
+
+// Bordes
+$border-color: #e0e0e0;
+$border-light: #f0f0f0;
+$border-dark: #c8c8c8;
+
+// Estados — fondos claros
+$success-light: #e8f5e9;
+$danger-light: #ffebee;
+$warning-light: #fff3e0;
+$info-light: #e3f2fd;
+
+
+// ============================================
+// 2. TIPOGRAFÍA
+// ============================================
+
+$font-xxs: 0.625rem;   // 10px
+$font-xs: 0.75rem;     // 12px
+$font-sm: 0.875rem;    // 14px
+$font-md: 0.9375rem;   // 15px
+$font-base: 1rem;      // 16px
+$font-lg: 1.125rem;    // 18px
+$font-xl: 1.25rem;     // 20px
+$font-xxl: 1.5rem;     // 24px
+$font-xxxl: 1.75rem;   // 28px
+$font-display: 2rem;   // 32px
+
+
+// ============================================
+// 3. ESPACIADO
+// ============================================
+
+$spacing-xxxl: 4rem;
+$gap-xs: 4px;
+$gap-sm: 8px;
+$gap-md: 12px;
+$gap-base: 16px;
+$gap-lg: 20px;
+$gap-xl: 24px;
+$gap-xxl: 32px;
+
+
+// ============================================
+// 4. BORDES REDONDEADOS
+// ============================================
+
+$radius-xs: 4px;
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-base: 12px;
+$radius-lg: 16px;
+$radius-xl: 24px;
+$radius-round: 50%;
+
+
+// ============================================
+// 5. SOMBRAS
+// ============================================
+
+$shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08);
+$shadow-card-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
+$shadow-focus: 0 0 0 3px rgba(153, 65, 157, 0.12);
+$shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.08);
+
+
+// ============================================
+// 6. TRANSICIONES & ANIMACIONES
+// ============================================
+
+$ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+$ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+$ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+
+// ============================================
+// 8. MIXINS — LAYOUT
+// ============================================
+
+@mixin page-container($max-w: 900px) {
+  max-width: $max-w;
+  margin: 0 auto;
+  padding: $spacing-lg;
+
+  @media (max-width: $breakpoint-sm) {
+    padding: $spacing-md;
+  }
+}
+
+@mixin page-background {
+  min-height: 100vh;
+  background: linear-gradient(135deg, $bg-page 0%, #e8e8e8 100%);
+  padding: $gap-xl;
+
+  @media (max-width: $breakpoint-md) {
+    padding: $gap-base;
+  }
+}
+
+@mixin responsive-grid($min-col: 320px, $gap: $gap-xl) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax($min-col, 1fr));
+  gap: $gap;
+
+  @media (max-width: $breakpoint-md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@mixin flex-row($gap: $gap-md) {
+  display: flex;
+  align-items: center;
+  gap: $gap;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+
+// ============================================
+// 9. MIXINS — CARDS
+// ============================================
+
+@mixin card {
+  background: $bg-card;
+  border-radius: $radius-lg;
+  border: 1px solid $border-light;
+  padding: $gap-xl;
+  box-shadow: $shadow-card;
+}
+
+@mixin card-interactive {
+  @include card;
+  transition: $transition-base;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: $shadow-card-hover;
+  }
+}
+
+@mixin card-form {
+  @include card;
+  padding: 28px;
+  position: relative;
+}
+
+@mixin card-metric {
+  @include card;
+  text-align: center;
+}
+
+
+// ============================================
+// 10. MIXINS — BOTONES
+// ============================================
+
+@mixin btn-primary($width: 100%) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $gap-sm;
+  padding: 0.75rem 1.5rem;
+  width: $width;
+  border: none;
+  border-radius: $radius-base;
+  background: $color-primary;
+  color: $text-light;
+  font-weight: 600;
+  font-family: $tipografia;
+  font-size: $font-base;
+  cursor: pointer;
+  transition: $transition-base;
+  text-decoration: none;
+
+  &:hover:not(:disabled) {
+    background: $color-primary-dark;
+    box-shadow: $shadow-primary;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+@mixin btn-gradient {
+  @include btn-primary;
+  background: linear-gradient(135deg, $color-primary, $color-primary-dark);
+
+  &:hover:not(:disabled) {
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba($color-primary, 0.3);
+    background: linear-gradient(135deg, $color-primary, $color-primary-dark);
+  }
+}
+
+@mixin btn-secondary($width: auto) {
+  @include btn-primary($width);
+  background: transparent;
+  color: $color-primary;
+  border: 1.5px solid $color-primary;
+
+  &:hover:not(:disabled) {
+    background: rgba($color-primary, 0.08);
+    box-shadow: none;
+  }
+}
+
+@mixin btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: $gap-sm;
+  padding: 10px 20px;
+  background: $bg-card;
+  border: 1px solid $border-color;
+  border-radius: $radius-base;
+  color: $text-primary;
+  font-size: $font-md;
+  font-weight: 500;
+  cursor: pointer;
+  transition: $transition-base;
+  box-shadow: $shadow-card;
+  text-decoration: none;
+
+  svg {
+    font-size: 20px;
+  }
+
+  &:hover {
+    background: $color-primary;
+    color: $text-light;
+    border-color: $color-primary;
+    transform: translateX(-4px);
+  }
+
+  @media (max-width: $breakpoint-md) {
+    padding: 10px;
+    min-width: 44px;
+    justify-content: center;
+  }
+}
+
+@mixin btn-danger {
+  @include btn-primary;
+  background: $color-danger;
+
+  &:hover:not(:disabled) {
+    background: darken($color-danger, 8%);
+    box-shadow: 0 4px 12px rgba($color-danger, 0.3);
+  }
+}
+
+
+// ============================================
+// 11. MIXINS — INPUTS & FORMULARIOS
+// ============================================
+
+@mixin input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid $border-color;
+  border-radius: $radius-base;
+  font-size: $font-md;
+  font-family: $tipografia;
+  color: $text-primary;
+  background: $bg-card;
+  transition: $transition-base;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: $color-primary;
+    box-shadow: $shadow-focus;
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+@mixin select {
+  @include input;
+  cursor: pointer;
+  appearance: auto;
+}
+
+@mixin input-label {
+  display: block;
+  font-size: $font-sm;
+  font-weight: 500;
+  color: $text-secondary;
+  margin-bottom: 0.35rem;
+}
+
+@mixin form-group {
+  margin-bottom: 1rem;
+
+  label {
+    @include input-label;
+  }
+
+  input, select, textarea {
+    @include input;
+  }
+}
+
+
+// ============================================
+// 12. MIXINS — BADGES & TAGS
+// ============================================
+
+@mixin badge($bg, $color: #fff) {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: $radius-sm;
+  font-size: $font-xs;
+  font-weight: 600;
+  background: $bg;
+  color: $color;
+  white-space: nowrap;
+}
+
+@mixin badge-status($type) {
+  @if $type == 'success' {
+    @include badge($color-success);
+  } @else if $type == 'danger' or $type == 'error' {
+    @include badge($color-danger);
+  } @else if $type == 'warning' {
+    @include badge($color-warning, $text-primary);
+  } @else if $type == 'info' {
+    @include badge($color-info);
+  } @else {
+    @include badge($color-secondary);
+  }
+}
+
+
+// ============================================
+// 13. MIXINS — TABLAS
+// ============================================
+
+@mixin table-container {
+  background: $bg-card;
+  border-radius: $radius-base;
+  overflow: hidden;
+  border: 1px solid $border-light;
+  box-shadow: $shadow-card;
+}
+
+@mixin table-header {
+  display: flex;
+  background: $bg-overlay;
+  padding: $gap-md $gap-base;
+  font-size: $font-xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: $text-secondary;
+}
+
+@mixin table-row {
+  display: flex;
+  padding: $gap-md $gap-base;
+  align-items: center;
+  border-bottom: 1px solid $border-light;
+  font-size: $font-sm;
+  color: $text-secondary;
+  transition: background 0.15s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: $bg-subtle;
+  }
+}
+
+@mixin table-total-row {
+  @include table-row;
+  background: $bg-overlay;
+  border-top: 1px solid $color-primary-light;
+  font-weight: 600;
+  color: $text-primary;
+
+  &:hover {
+    background: $bg-overlay;
+  }
+}
+
+
+// ============================================
+// 14. MIXINS — ESTADOS
+// ============================================
+
+@mixin empty-state {
+  @include flex-center-col;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+@mixin icon-circle($size: 120px, $color: $color-primary) {
+  width: $size;
+  height: $size;
+  border-radius: $radius-round;
+  background: linear-gradient(135deg, rgba($color, 0.15), rgba($color, 0.05));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    font-size: $size * 0.5;
+    color: $color;
+  }
+}
+
+@mixin loading-state {
+  @include flex-center-col;
+  min-height: 60vh;
+  gap: $gap-base;
+  color: $text-secondary;
+  font-size: $font-base;
+}
+
+
+// ============================================
+// 15. MIXINS — SECCIONES
+// ============================================
+
+@mixin section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: $text-secondary;
+  margin-bottom: 0.75rem;
+}
+
+@mixin page-title {
+  text-align: center;
+  margin-bottom: $gap-xxl;
+
+  h1 {
+    font-size: $font-xxxl;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 $gap-sm 0;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: $font-xxl;
+    }
+  }
+
+  p {
+    font-size: $font-base;
+    color: $text-secondary;
+    margin: 0;
+  }
+}
+
+@mixin page-header-actions($max-w: 1100px) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $gap-md;
+  margin-bottom: $gap-xl;
+  max-width: $max-w;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+// ============================================
+// 16. MIXINS — GLASSMORPHISM & EFECTOS
+// ============================================
+
+@mixin glass {
+  background: $bg-glass;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+@mixin gradient-text {
+  background: linear-gradient(135deg, $color-primary, $color-primary-light);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@mixin focus-ring {
+  outline: none;
+  box-shadow: $shadow-focus;
+}
