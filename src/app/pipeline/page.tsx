@@ -356,6 +356,7 @@ export default function PipelinePage() {
           <h1 className="text-xl font-semibold text-white">Pipeline de negocios</h1>
         </div>
         <div className="flex items-center gap-4">
+          {/* Filtros */}
           <div className="flex items-center gap-2">
             <Filter size={12} className={filtrosActivos ? 'text-violet-400' : 'text-zinc-600'} />
 
@@ -418,6 +419,7 @@ export default function PipelinePage() {
         </div>
       </div>
 
+      {/* Alerta de seguimiento */}
       {alertas.length > 0 && !filtroSoloAlertas && (
         <div className="mx-6 mt-4 shrink-0 flex items-center gap-3 px-4 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
@@ -461,7 +463,7 @@ export default function PipelinePage() {
 
       <div className="px-8 py-3 border-t border-[#1a1a1a] shrink-0">
         <p className="text-[11px] text-zinc-700">
-          Arrastrá los cards entre columnas o usá el selector de etapa · Hover para agregar nota rápida
+          Arrastrá los cards entre columnas · Hover en un card para agregar nota rápida
           {filtrosActivos && <span className="text-violet-400"> · Filtros activos</span>}
         </p>
       </div>
