@@ -20,7 +20,7 @@ function fmt(n: number) {
   return `$${n}`
 }
 
-function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd, onNoteAdded }: {
+function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd, onNoteAdded, onEtapaChange }: {
   productor: Productor
   isDragging: boolean
   isStale: boolean
@@ -28,6 +28,7 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
   onNoteAdded: (id: string) => void
+  onEtapaChange: (id: string, etapa: PipelineEtapa) => void
 }) {
   const [showNote, setShowNote] = useState(false)
   const [nota, setNota] = useState('')
@@ -116,16 +117,26 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
           {productor.valor_estimado != null && productor.valor_estimado > 0 && (
             <span className="text-[10px] text-emerald-500 font-medium">{fmt(productor.valor_estimado)}</span>
           )}
-        </div>
-        <div className="flex items-center gap-1.5">
           {isStale && (
             <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
               <AlertTriangle size={9} />
-              {diasStale}d sin contacto
+              {diasStale}d
             </span>
           )}
-          {!isStale && <span className="text-[10px] text-zinc-700">{dias === 0 ? 'Hoy' : `${dias}d`}</span>}
         </div>
+        <select
+          value={productor.pipeline_etapa ?? 'nuevo'}
+          onClick={e => e.stopPropagation()}
+          onChange={e => {
+            e.stopPropagation()
+            onEtapaChange(productor.id, e.target.value as PipelineEtapa)
+          }}
+          className="text-[10px] text-zinc-500 bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-1.5 py-0.5 cursor-pointer hover:border-violet-500/40 focus:outline-none focus:border-violet-500/60 transition-colors"
+        >
+          {ETAPAS.map(e => (
+            <option key={e.key} value={e.key}>{e.label}</option>
+          ))}
+        </select>
       </div>
 
       {showNote && (
@@ -172,7 +183,7 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
   )
 }
 
-function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop, onNoteAdded }: {
+function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop, onNoteAdded, onEtapaChange }: {
   etapa: typeof ETAPAS[0]
   productores: Productor[]
   draggedId: string | null
@@ -182,6 +193,7 @@ function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDr
   onDragEnd: () => void
   onDrop: (etapaKey: PipelineEtapa) => void
   onNoteAdded: (id: string) => void
+  onEtapaChange: (id: string, etapa: PipelineEtapa) => void
 }) {
   const [isOver, setIsOver] = useState(false)
   const totalValor = productores.reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
@@ -222,6 +234,7 @@ function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDr
             onDragStart={e => onDragStart(p.id, e)}
             onDragEnd={onDragEnd}
             onNoteAdded={onNoteAdded}
+            onEtapaChange={onEtapaChange}
           />
         ))}
         {isOver && draggedId && (
@@ -274,6 +287,25 @@ export default function PipelinePage() {
     setAlertas(prev => prev.filter(a => a.id !== id))
   }
 
+  const handleEtapaChange = async (id: string, etapaKey: PipelineEtapa) => {
+    const productor = productores.find(p => p.id === id)
+    if (!productor || (productor.pipeline_etapa ?? 'nuevo') === etapaKey) return
+    const prevEtapa = productor.pipeline_etapa ?? 'nuevo'
+    setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: etapaKey } : p))
+    const res = await fetch(`/api/productores/${id}/etapa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_etapa: etapaKey }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: prevEtapa } : p))
+      toast.error(`Error: ${err.error ?? res.status}`)
+    } else {
+      toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
+    }
+  }
+
   const handleDragStart = (id: string, e: React.DragEvent) => {
     setDraggedId(id)
     e.dataTransfer.effectAllowed = 'move'
@@ -288,15 +320,16 @@ export default function PipelinePage() {
     setProductores(prev => prev.map(p => p.id === draggedId ? { ...p, pipeline_etapa: etapaKey } : p))
     setDraggedId(null)
 
-    const res = await fetch(`/api/productores/${draggedId}`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/productores/${draggedId}/etapa`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pipeline_etapa: etapaKey }),
     })
 
     if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
       setProductores(prev => prev.map(p => p.id === draggedId ? { ...p, pipeline_etapa: prevEtapa } : p))
-      toast.error('Error al mover el deal')
+      toast.error(`Error: ${err.error ?? res.status}`)
     } else {
       toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
     }
@@ -424,6 +457,7 @@ export default function PipelinePage() {
                 onDragEnd={() => setDraggedId(null)}
                 onDrop={handleDrop}
                 onNoteAdded={handleNoteAdded}
+                onEtapaChange={handleEtapaChange}
               />
             ))
         }

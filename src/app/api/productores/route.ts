@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       tipo_evento: body.tipo_evento || null,
       pais: body.pais || null,
       estado: body.estado || 'prospecto',
+      pipeline_etapa: 'nuevo',
       notas: body.notas || null,
       tags: body.tags ?? [],
     }])
