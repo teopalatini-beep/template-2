@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { evaluateRules } from '@/lib/automation'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,11 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const body = await request.json()
+  const { data: previous } = await supabase
+    .from('productores')
+    .select('estado')
+    .eq('id', params.id)
+    .single()
 
   const { data, error } = await supabase
     .from('productores')
@@ -25,28 +31,25 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       telefono: body.telefono || null,
       email: body.email || null,
       tipo_evento: body.tipo_evento || null,
-      pais: body.pais || null,
       estado: body.estado,
       notas: body.notas || null,
-      tags: body.tags ?? [],
-      valor_estimado: body.valor_estimado ?? null,
     })
     .eq('id', params.id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
-}
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const body = await request.json()
-  const { error } = await supabase
-    .from('productores')
-    .update(body)
-    .eq('id', params.id)
-  if (error) return NextResponse.json({ error: error.message, code: error.code }, { status: 500 })
-  return NextResponse.json({ success: true })
+  if (previous?.estado && previous.estado !== data.estado) {
+    await evaluateRules({
+      trigger: 'estado_cambiado',
+      productorId: params.id,
+      fromEstado: previous.estado,
+      toEstado: data.estado,
+    })
+  }
+
+  return NextResponse.json(data)
 }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {

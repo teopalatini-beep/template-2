@@ -19,6 +19,13 @@ const config: Record<string, { label: string; className: string }> = {
   fallido:    { label: 'Fallido',    className: 'bg-red-500/10    text-red-400    border-red-500/15'    },
   whatsapp:   { label: 'WhatsApp',   className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' },
   email:      { label: 'Email',      className: 'bg-sky-500/10    text-sky-400    border-sky-500/15'    },
+  recontactar:{ label: 'Recontactar',className: 'bg-violet-500/10 text-violet-300 border-violet-500/20' },
+  agendar:    { label: 'Agendar',    className: 'bg-sky-500/10    text-sky-300    border-sky-500/20'    },
+  pausar:     { label: 'Pausar',     className: 'bg-zinc-500/10   text-zinc-300   border-zinc-500/20'   },
+  escalar:    { label: 'Escalar',    className: 'bg-amber-500/10  text-amber-300  border-amber-500/20'  },
+  alta:       { label: 'Alta',       className: 'bg-red-500/10    text-red-300    border-red-500/20'    },
+  media:      { label: 'Media',      className: 'bg-amber-500/10  text-amber-300  border-amber-500/20'  },
+  baja:       { label: 'Baja',       className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' },
 }
 
 export default function StatusBadge({ status }: StatusBadgeProps) {

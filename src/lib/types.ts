@@ -1,5 +1,4 @@
 export type EstadoProductor = 'prospecto' | 'activo' | 'inactivo'
-export type PipelineEtapa = 'nuevo' | 'contactado' | 'propuesta' | 'negociacion' | 'cerrado' | 'perdido'
 
 export interface Productor {
   id: string
@@ -10,10 +9,6 @@ export interface Productor {
   tipo_evento: string | null
   estado: EstadoProductor
   notas: string | null
-  pais: string | null
-  tags: string[]
-  pipeline_etapa: PipelineEtapa
-  valor_estimado: number | null
   created_at: string
 }
 
@@ -45,6 +40,37 @@ export interface Mensaje {
   campanas?: Campana
 }
 
+export interface CopilotSuggestion {
+  action: 'recontactar' | 'agendar' | 'pausar' | 'escalar'
+  priority: 'alta' | 'media' | 'baja'
+  reason: string
+  suggestedMessage: string
+}
+
+export type RuleTrigger = 'mensaje_enviado' | 'mensaje_fallido' | 'estado_cambiado' | 'inactividad_detectada'
+export type RuleAction = 'cambiar_estado' | 'crear_borrador'
+
+export interface AutomationRule {
+  id: string
+  nombre: string
+  activa: boolean
+  trigger: RuleTrigger
+  conditions: {
+    fromEstado?: EstadoProductor
+    toEstado?: EstadoProductor
+    canal?: Canal
+    inactiveDays?: number
+  }
+  action: RuleAction
+  actionConfig: {
+    targetEstado?: EstadoProductor
+    titulo?: string
+    mensaje?: string
+    canal?: Canal
+  }
+  created_at: string
+}
+
 export type EstadoCliente = 'lead' | 'activo' | 'pausado'
 
 export interface Cliente {
@@ -66,29 +92,5 @@ export interface Proyecto {
   servicio: string
   estado: EstadoProyecto
   fecha_evento: string | null
-  created_at: string
-}
-
-export type TipoActividad = 'llamada' | 'reunion' | 'nota' | 'email'
-
-export interface Actividad {
-  id: string
-  productor_id: string
-  tipo: TipoActividad
-  descripcion: string
-  created_at: string
-}
-
-export type EstadoEvento = 'pre_evento' | 'en_vivo' | 'finalizado'
-
-export interface Evento {
-  id: string
-  productor_id: string
-  nombre: string
-  lugar: string | null
-  fecha_evento: string | null
-  estado: EstadoEvento
-  notas: string | null
-  capacidad: number | null
   created_at: string
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Plus, ChevronRight, Megaphone, Trash2 } from 'lucide-react'
 import { Campana } from '@/lib/types'
@@ -11,11 +11,14 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
 
+const DELETE_UNDO_MS = 8000
+
 export default function CampanasPage() {
   const [campanas, setCampanas] = useState<Campana[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<Campana | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const pendingDeletesRef = useRef(new Map<string, { campana: Campana; timer: ReturnType<typeof setTimeout> }>())
 
   useEffect(() => {
     fetch('/api/campanas')
@@ -26,20 +29,48 @@ export default function CampanasPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    try {
-      const res = await fetch(`/api/campanas/${deleteTarget.id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setCampanas((prev) => prev.filter((c) => c.id !== deleteTarget.id))
-      toast.success(`Campaña "${deleteTarget.titulo}" eliminada`)
-      setDeleteTarget(null)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'No se pudo eliminar la campaña'
-      toast.error(message)
-    } finally {
-      setDeleting(false)
-    }
+    const campana = deleteTarget
+    setDeleteTarget(null)
+    setCampanas((prev) => prev.filter((item) => item.id !== campana.id))
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/campanas/${campana.id}`, { method: 'DELETE' })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+        toast.success(`Campaña "${campana.titulo}" eliminada`)
+      } catch (error: unknown) {
+        setCampanas((prev) => [campana, ...prev].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+        const message = error instanceof Error ? error.message : 'No se pudo eliminar la campaña'
+        toast.error(message)
+      } finally {
+        pendingDeletesRef.current.delete(campana.id)
+      }
+    }, DELETE_UNDO_MS)
+
+    pendingDeletesRef.current.set(campana.id, { campana, timer })
+    toast('Campaña marcada para eliminar', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          const pending = pendingDeletesRef.current.get(campana.id)
+          if (!pending) return
+          clearTimeout(pending.timer)
+          pendingDeletesRef.current.delete(campana.id)
+          setCampanas((prev) => [pending.campana, ...prev].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+          toast.success('Eliminación cancelada')
+        },
+      },
+    })
+    setDeleting(false)
   }
+
+  useEffect(() => {
+    return () => {
+      pendingDeletesRef.current.forEach((pending) => clearTimeout(pending.timer))
+      pendingDeletesRef.current.clear()
+    }
+  }, [])
 
   return (
     <div className="p-8 max-w-6xl mx-auto">

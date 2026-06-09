@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Send, CheckCircle, XCircle, Trash2 } from 'lucide-react'
@@ -12,9 +12,18 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toast } from 'sonner'
 
+const DELETE_UNDO_MS = 8000
+
 interface CampanaDetail {
   campana: Campana
   mensajes: (Mensaje & { productores?: { nombre: string; empresa: string | null } })[]
+}
+
+function getVariant(content: string | null): 'A' | 'B' | null {
+  if (!content) return null
+  if (content.startsWith('[A]')) return 'A'
+  if (content.startsWith('[B]')) return 'B'
+  return null
 }
 
 export default function CampanaDetailPage() {
@@ -24,6 +33,8 @@ export default function CampanaDetailPage() {
   const [loading, setLoading] = useState(true)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteScheduled, setDeleteScheduled] = useState(false)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     fetch(`/api/campanas/${id}`)
@@ -53,23 +64,63 @@ export default function CampanaDetailPage() {
   const enviados = mensajes.filter(m => m.status === 'enviado').length
   const fallidos = mensajes.filter(m => m.status === 'fallido').length
   const tasa = mensajes.length > 0 ? Math.round((enviados / mensajes.length) * 100) : 0
+  const variantStats = mensajes.reduce((acc, mensaje) => {
+    const key = getVariant(mensaje.contenido)
+    if (!key) return acc
+    acc[key].total += 1
+    if (mensaje.status === 'enviado') acc[key].ok += 1
+    return acc
+  }, {
+    A: { total: 0, ok: 0 },
+    B: { total: 0, ok: 0 },
+  })
+  const variantRateA = variantStats.A.total > 0 ? Math.round((variantStats.A.ok / variantStats.A.total) * 100) : 0
+  const variantRateB = variantStats.B.total > 0 ? Math.round((variantStats.B.ok / variantStats.B.total) * 100) : 0
+  const winner = variantStats.A.total && variantStats.B.total
+    ? (variantRateA >= variantRateB ? 'A' : 'B')
+    : null
 
   const handleDelete = async () => {
     setDeleting(true)
-    try {
-      const res = await fetch(`/api/campanas/${campana.id}`, { method: 'DELETE' })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error)
-      toast.success('Campaña eliminada')
-      router.push('/campanas')
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'No se pudo eliminar la campaña'
-      toast.error(message)
-    } finally {
-      setDeleting(false)
-      setDeleteOpen(false)
-    }
+    setDeleteOpen(false)
+    setDeleteScheduled(true)
+
+    deleteTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/campanas/${campana.id}`, { method: 'DELETE' })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error)
+        toast.success('Campaña eliminada')
+        router.push('/campanas')
+      } catch (error: unknown) {
+        setDeleteScheduled(false)
+        const message = error instanceof Error ? error.message : 'No se pudo eliminar la campaña'
+        toast.error(message)
+      } finally {
+        deleteTimerRef.current = null
+      }
+    }, DELETE_UNDO_MS)
+
+    toast('Campaña marcada para eliminar', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          if (!deleteTimerRef.current) return
+          clearTimeout(deleteTimerRef.current)
+          deleteTimerRef.current = null
+          setDeleteScheduled(false)
+          toast.success('Eliminación cancelada')
+        },
+      },
+    })
+    setDeleting(false)
   }
+
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    }
+  }, [])
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -94,10 +145,11 @@ export default function CampanaDetailPage() {
         {campana.estado === 'enviada' && (
           <button
             onClick={() => setDeleteOpen(true)}
+            disabled={deleteScheduled}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-zinc-400 hover:text-red-300 border border-[#2a2a2a] hover:border-red-500/30 rounded-lg transition-colors"
           >
             <Trash2 size={12} />
-            Eliminar
+            {deleteScheduled ? 'Pendiente...' : 'Eliminar'}
           </button>
         )}
       </div>
@@ -125,6 +177,31 @@ export default function CampanaDetailPage() {
         <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest mb-3">Contenido</p>
         <p className="text-[13px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{campana.mensaje}</p>
       </div>
+
+      {(variantStats.A.total > 0 || variantStats.B.total > 0) && (
+        <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">A/B performance</p>
+            {winner && (
+              <span className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-0.5">
+                Ganadora: Variante {winner}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg p-3">
+              <p className="text-[12px] text-zinc-300 mb-1">Variante A</p>
+              <p className="text-[18px] font-semibold text-white">{variantRateA}%</p>
+              <p className="text-[11px] text-zinc-600">{variantStats.A.ok}/{variantStats.A.total} enviados</p>
+            </div>
+            <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg p-3">
+              <p className="text-[12px] text-zinc-300 mb-1">Variante B</p>
+              <p className="text-[18px] font-semibold text-white">{variantRateB}%</p>
+              <p className="text-[11px] text-zinc-600">{variantStats.B.ok}/{variantStats.B.total} enviados</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Destinatarios */}
       <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden">

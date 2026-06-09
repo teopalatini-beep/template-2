@@ -15,12 +15,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json()
+  const tieneAB = Boolean(body.ab_test && body.mensaje_a && body.mensaje_b)
+  const mensaje = tieneAB
+    ? `A/B Test\n\n[A]\n${body.mensaje_a}\n\n[B]\n${body.mensaje_b}`
+    : body.mensaje
 
   const { data, error } = await supabase
     .from('campanas')
     .insert([{
       titulo: body.titulo,
-      mensaje: body.mensaje,
+      mensaje,
       canal: body.canal,
       estado: 'borrador',
     }])

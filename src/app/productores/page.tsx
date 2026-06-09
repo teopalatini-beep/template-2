@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List } from 'lucide-react'
 import { EstadoProductor, Productor } from '@/lib/types'
@@ -11,6 +11,7 @@ import { SkeletonTable } from '@/components/Skeleton'
 import { toast } from 'sonner'
 
 const tiposEvento = ['Recital', 'Fiesta', 'Teatro', 'Corporativo', 'Deportivo', 'Otro']
+const MOVE_UNDO_MS = 8000
 
 const estadoColors: Record<string, string> = {
   prospecto: 'bg-amber-500',
@@ -114,6 +115,7 @@ export default function ProductoresPage() {
   const [editProductor, setEditProductor] = useState<Productor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Productor | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const pendingMovesRef = useRef(new Map<string, { previous: EstadoProductor; timer: ReturnType<typeof setTimeout> }>())
 
   const fetchProductores = useCallback(async () => {
     const res = await fetch('/api/productores')
@@ -149,23 +151,53 @@ export default function ProductoresPage() {
   const moveProductor = useCallback(async (id: string, estado: EstadoProductor) => {
     const target = productores.find((p) => p.id === id)
     if (!target || target.estado === estado) return
+    const existingPending = pendingMovesRef.current.get(id)
+    if (existingPending) clearTimeout(existingPending.timer)
+    const previousEstado = existingPending?.previous ?? target.estado
 
     setProductores((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)))
 
-    try {
-      const res = await fetch(`/api/productores/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...target, estado }),
-      })
+    const timer = setTimeout(async () => {
+      try {
+        const getRes = await fetch(`/api/productores/${id}`)
+        const fresh = await getRes.json()
+        const res = await fetch(`/api/productores/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...fresh, estado }),
+        })
+        if (!res.ok) throw new Error()
+        toast.success(`${target.nombre} movido a ${estado}`)
+      } catch {
+        setProductores((prev) => prev.map((p) => (p.id === id ? { ...p, estado: previousEstado } : p)))
+        toast.error('No se pudo guardar el cambio de estado')
+      } finally {
+        pendingMovesRef.current.delete(id)
+      }
+    }, MOVE_UNDO_MS)
 
-      if (!res.ok) throw new Error()
-      toast.success(`${target.nombre} movido a ${estado}`)
-    } catch {
-      setProductores((prev) => prev.map((p) => (p.id === id ? { ...p, estado: target.estado } : p)))
-      toast.error('No se pudo mover el productor')
-    }
+    pendingMovesRef.current.set(id, { previous: previousEstado, timer })
+    toast(`Moviste a ${target.nombre} a ${estado}`, {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          const pending = pendingMovesRef.current.get(id)
+          if (!pending) return
+          clearTimeout(pending.timer)
+          pendingMovesRef.current.delete(id)
+          setProductores((prev) => prev.map((p) => (p.id === id ? { ...p, estado: pending.previous } : p)))
+          toast.success('Cambio deshecho')
+        },
+      },
+    })
   }, [productores])
+
+  useEffect(() => {
+    return () => {
+      pendingMovesRef.current.forEach((pending) => clearTimeout(pending.timer))
+      pendingMovesRef.current.clear()
+    }
+  }, [])
 
   const filtered = productores.filter(p => {
     const q = search.toLowerCase()
