@@ -36,6 +36,7 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const dias = Math.floor((Date.now() - new Date(productor.created_at).getTime()) / 86400000)
+  void dias
 
   useEffect(() => {
     if (showNote) textareaRef.current?.focus()
@@ -298,8 +299,9 @@ export default function PipelinePage() {
       body: JSON.stringify({ pipeline_etapa: etapaKey }),
     })
     if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
       setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: prevEtapa } : p))
-      toast.error('Error al cambiar etapa')
+      toast.error(`Error al cambiar etapa: ${err.error ?? res.status}`)
     } else {
       toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
     }
@@ -326,8 +328,9 @@ export default function PipelinePage() {
     })
 
     if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
       setProductores(prev => prev.map(p => p.id === draggedId ? { ...p, pipeline_etapa: prevEtapa } : p))
-      toast.error('Error al mover el deal')
+      toast.error(`Error al mover: ${err.error ?? res.status}`)
     } else {
       toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
     }
@@ -356,7 +359,6 @@ export default function PipelinePage() {
           <h1 className="text-xl font-semibold text-white">Pipeline de negocios</h1>
         </div>
         <div className="flex items-center gap-4">
-          {/* Filtros */}
           <div className="flex items-center gap-2">
             <Filter size={12} className={filtrosActivos ? 'text-violet-400' : 'text-zinc-600'} />
 
@@ -419,7 +421,6 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Alerta de seguimiento */}
       {alertas.length > 0 && !filtroSoloAlertas && (
         <div className="mx-6 mt-4 shrink-0 flex items-center gap-3 px-4 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
