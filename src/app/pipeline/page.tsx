@@ -20,7 +20,7 @@ function fmt(n: number) {
   return `$${n}`
 }
 
-function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd, onNoteAdded }: {
+function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, onDragEnd, onNoteAdded, onEtapaChange }: {
   productor: Productor
   isDragging: boolean
   isStale: boolean
@@ -28,6 +28,7 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
   onNoteAdded: (id: string) => void
+  onEtapaChange: (id: string, etapa: PipelineEtapa) => void
 }) {
   const [showNote, setShowNote] = useState(false)
   const [nota, setNota] = useState('')
@@ -116,16 +117,26 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
           {productor.valor_estimado != null && productor.valor_estimado > 0 && (
             <span className="text-[10px] text-emerald-500 font-medium">{fmt(productor.valor_estimado)}</span>
           )}
-        </div>
-        <div className="flex items-center gap-1.5">
           {isStale && (
             <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
               <AlertTriangle size={9} />
-              {diasStale}d sin contacto
+              {diasStale}d
             </span>
           )}
-          {!isStale && <span className="text-[10px] text-zinc-700">{dias === 0 ? 'Hoy' : `${dias}d`}</span>}
         </div>
+        <select
+          value={productor.pipeline_etapa ?? 'nuevo'}
+          onClick={e => e.stopPropagation()}
+          onChange={e => {
+            e.stopPropagation()
+            onEtapaChange(productor.id, e.target.value as PipelineEtapa)
+          }}
+          className="text-[10px] text-zinc-500 bg-[#1a1a1a] border border-[#2a2a2a] rounded-md px-1.5 py-0.5 cursor-pointer hover:border-violet-500/40 focus:outline-none focus:border-violet-500/60 transition-colors"
+        >
+          {ETAPAS.map(e => (
+            <option key={e.key} value={e.key}>{e.label}</option>
+          ))}
+        </select>
       </div>
 
       {showNote && (
@@ -172,7 +183,7 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
   )
 }
 
-function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop, onNoteAdded }: {
+function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDragStart, onDragEnd, onDrop, onNoteAdded, onEtapaChange }: {
   etapa: typeof ETAPAS[0]
   productores: Productor[]
   draggedId: string | null
@@ -182,6 +193,7 @@ function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDr
   onDragEnd: () => void
   onDrop: (etapaKey: PipelineEtapa) => void
   onNoteAdded: (id: string) => void
+  onEtapaChange: (id: string, etapa: PipelineEtapa) => void
 }) {
   const [isOver, setIsOver] = useState(false)
   const totalValor = productores.reduce((sum, p) => sum + (p.valor_estimado ?? 0), 0)
@@ -222,6 +234,7 @@ function KanbanColumn({ etapa, productores, draggedId, staleIds, staleData, onDr
             onDragStart={e => onDragStart(p.id, e)}
             onDragEnd={onDragEnd}
             onNoteAdded={onNoteAdded}
+            onEtapaChange={onEtapaChange}
           />
         ))}
         {isOver && draggedId && (
@@ -272,6 +285,24 @@ export default function PipelinePage() {
 
   const handleNoteAdded = (id: string) => {
     setAlertas(prev => prev.filter(a => a.id !== id))
+  }
+
+  const handleEtapaChange = async (id: string, etapaKey: PipelineEtapa) => {
+    const productor = productores.find(p => p.id === id)
+    if (!productor || (productor.pipeline_etapa ?? 'nuevo') === etapaKey) return
+    const prevEtapa = productor.pipeline_etapa ?? 'nuevo'
+    setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: etapaKey } : p))
+    const res = await fetch(`/api/productores/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_etapa: etapaKey }),
+    })
+    if (!res.ok) {
+      setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: prevEtapa } : p))
+      toast.error('Error al cambiar etapa')
+    } else {
+      toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
+    }
   }
 
   const handleDragStart = (id: string, e: React.DragEvent) => {
@@ -325,7 +356,6 @@ export default function PipelinePage() {
           <h1 className="text-xl font-semibold text-white">Pipeline de negocios</h1>
         </div>
         <div className="flex items-center gap-4">
-          {/* Filtros */}
           <div className="flex items-center gap-2">
             <Filter size={12} className={filtrosActivos ? 'text-violet-400' : 'text-zinc-600'} />
 
@@ -388,7 +418,6 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Alerta de seguimiento */}
       {alertas.length > 0 && !filtroSoloAlertas && (
         <div className="mx-6 mt-4 shrink-0 flex items-center gap-3 px-4 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
@@ -424,6 +453,7 @@ export default function PipelinePage() {
                 onDragEnd={() => setDraggedId(null)}
                 onDrop={handleDrop}
                 onNoteAdded={handleNoteAdded}
+                onEtapaChange={handleEtapaChange}
               />
             ))
         }
@@ -431,7 +461,7 @@ export default function PipelinePage() {
 
       <div className="px-8 py-3 border-t border-[#1a1a1a] shrink-0">
         <p className="text-[11px] text-zinc-700">
-          Arrastrá los cards entre columnas · Hover en un card para agregar nota rápida
+          Arrastrá los cards entre columnas o usá el selector de etapa · Hover para agregar nota rápida
           {filtrosActivos && <span className="text-violet-400"> · Filtros activos</span>}
         </p>
       </div>
