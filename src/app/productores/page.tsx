@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List, Upload, Download, RefreshCw } from 'lucide-react'
-import { Productor } from '@/lib/types'
+import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List } from 'lucide-react'
+import { EstadoProductor, Productor } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
 import ConfirmModal from '@/components/ConfirmModal'
-import ImportModal from '@/components/ImportModal'
 import { SkeletonTable } from '@/components/Skeleton'
 import { toast } from 'sonner'
 
@@ -19,10 +18,11 @@ const estadoColors: Record<string, string> = {
   inactivo: 'bg-zinc-500',
 }
 
-function KanbanView({ productores, onEdit, onDelete }: {
+function KanbanView({ productores, onEdit, onDelete, onMove }: {
   productores: Productor[]
   onEdit: (p: Productor) => void
   onDelete: (p: Productor) => void
+  onMove: (id: string, estado: EstadoProductor) => void
 }) {
   const grupos = [
     { key: 'prospecto', label: 'Prospectos' },
@@ -35,7 +35,16 @@ function KanbanView({ productores, onEdit, onDelete }: {
       {grupos.map(({ key, label }) => {
         const items = productores.filter(p => p.estado === key)
         return (
-          <div key={key} className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden">
+          <div
+            key={key}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const id = e.dataTransfer.getData('text/plain')
+              if (id) onMove(id, key as EstadoProductor)
+            }}
+            className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden"
+          >
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
               <div className={`w-1.5 h-1.5 rounded-full ${estadoColors[key]}`} />
               <span className="text-[12px] font-medium text-zinc-400">{label}</span>
@@ -43,7 +52,12 @@ function KanbanView({ productores, onEdit, onDelete }: {
             </div>
             <div className="p-2 space-y-1.5 min-h-[200px]">
               {items.map(p => (
-                <div key={p.id} className="group bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] rounded-lg p-3 transition-all">
+                <div
+                  key={p.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('text/plain', p.id)}
+                  className="group bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] rounded-lg p-3 transition-all cursor-grab active:cursor-grabbing"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <Link href={`/productores/${p.id}`} className="text-[13px] font-medium text-zinc-200 hover:text-violet-400 transition-colors truncate block">
@@ -59,6 +73,19 @@ function KanbanView({ productores, onEdit, onDelete }: {
                         <Trash2 size={11} />
                       </button>
                     </div>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-zinc-700">Mover a</span>
+                    <select
+                      value={p.estado}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => onMove(p.id, e.target.value as EstadoProductor)}
+                      className="bg-[#1a1a1a] border border-[#262626] rounded-md px-1.5 py-1 text-[10px] text-zinc-400 focus:outline-none focus:border-violet-500/40"
+                    >
+                      <option value="prospecto">Prospecto</option>
+                      <option value="activo">Activo</option>
+                      <option value="inactivo">Inactivo</option>
+                    </select>
                   </div>
                   {p.tipo_evento && (
                     <span className="mt-2 inline-block text-[10px] text-zinc-600 bg-[#1a1a1a] rounded px-1.5 py-0.5">{p.tipo_evento}</span>
@@ -84,45 +111,9 @@ export default function ProductoresPage() {
   const [tipoFilter, setTipoFilter] = useState('')
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [modalOpen, setModalOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
   const [editProductor, setEditProductor] = useState<Productor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Productor | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-
-  const syncFromSimplePass = async () => {
-    setSyncing(true)
-    const toastId = toast.loading('Sincronizando desde SimplePass...')
-    try {
-      const res = await fetch('/api/sync-productores', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      toast.success(
-        `Sync completo · ${data.importados} importados · ${data.ya_existian ?? 0} ya existían`,
-        { id: toastId, duration: 6000 }
-      )
-      fetchProductores()
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error al sincronizar', { id: toastId })
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  const exportCSV = () => {
-    const headers = ['nombre', 'empresa', 'email', 'telefono', 'tipo_evento', 'pais', 'estado', 'tags', 'notas']
-    const rows = productores.map(p => [
-      p.nombre, p.empresa ?? '', p.email ?? '', p.telefono ?? '',
-      p.tipo_evento ?? '', p.pais ?? '', p.estado,
-      (p.tags ?? []).join(';'), p.notas ?? '',
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-    const csv = [headers.join(','), ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = `productores_${new Date().toISOString().split('T')[0]}.csv`; a.click()
-    URL.revokeObjectURL(url)
-    toast.success(`${productores.length} productores exportados`)
-  }
 
   const fetchProductores = useCallback(async () => {
     const res = await fetch('/api/productores')
@@ -155,6 +146,27 @@ export default function ProductoresPage() {
 
   const openEdit = (p: Productor) => { setEditProductor(p); setModalOpen(true) }
 
+  const moveProductor = useCallback(async (id: string, estado: EstadoProductor) => {
+    const target = productores.find((p) => p.id === id)
+    if (!target || target.estado === estado) return
+
+    setProductores((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)))
+
+    try {
+      const res = await fetch(`/api/productores/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...target, estado }),
+      })
+
+      if (!res.ok) throw new Error()
+      toast.success(`${target.nombre} movido a ${estado}`)
+    } catch {
+      setProductores((prev) => prev.map((p) => (p.id === id ? { ...p, estado: target.estado } : p)))
+      toast.error('No se pudo mover el productor')
+    }
+  }, [productores])
+
   const filtered = productores.filter(p => {
     const q = search.toLowerCase()
     const matchSearch = !search || p.nombre.toLowerCase().includes(q) || (p.empresa ?? '').toLowerCase().includes(q)
@@ -176,31 +188,13 @@ export default function ProductoresPage() {
             <span className="ml-2 text-[13px] font-normal text-zinc-600">{productores.length}</span>
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={syncFromSimplePass}
-            disabled={syncing}
-            className="flex items-center gap-2 px-3 py-2 bg-violet-600/10 hover:bg-violet-600/20 border border-violet-500/25 text-violet-400 hover:text-violet-300 text-[13px] font-medium rounded-lg transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Sincronizando...' : 'Sync SimplePass'}
-          </button>
-          <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-zinc-200 text-[13px] font-medium rounded-lg transition-all">
-            <Download size={13} />
-            Exportar
-          </button>
-          <button onClick={() => setImportOpen(true)} className="flex items-center gap-2 px-3 py-2 bg-[#141414] hover:bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-zinc-200 text-[13px] font-medium rounded-lg transition-all">
-            <Upload size={13} />
-            Importar
-          </button>
-          <button
-            onClick={() => { setEditProductor(null); setModalOpen(true) }}
-            className="flex items-center gap-2 px-3.5 py-2 bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
-          >
-            <Plus size={14} />
-            Agregar
-          </button>
-        </div>
+        <button
+          onClick={() => { setEditProductor(null); setModalOpen(true) }}
+          className="flex items-center gap-2 px-3.5 py-2 bg-violet-600 hover:bg-violet-500 text-white text-[13px] font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
+        >
+          <Plus size={14} />
+          Agregar
+        </button>
       </div>
 
       {/* Toolbar */}
@@ -279,7 +273,7 @@ export default function ProductoresPage() {
           )}
         </div>
       ) : view === 'kanban' ? (
-        <KanbanView productores={filtered} onEdit={openEdit} onDelete={setDeleteTarget} />
+        <KanbanView productores={filtered} onEdit={openEdit} onDelete={setDeleteTarget} onMove={moveProductor} />
       ) : (
         <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden">
           <table className="w-full">
@@ -328,11 +322,6 @@ export default function ProductoresPage() {
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
         productor={editProductor}
-      />
-      <ImportModal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onImported={() => { fetchProductores(); setImportOpen(false) }}
       />
 
       <ConfirmModal

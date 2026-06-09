@@ -2,22 +2,44 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, ChevronRight, Megaphone } from 'lucide-react'
+import { Plus, ChevronRight, Megaphone, Trash2 } from 'lucide-react'
 import { Campana } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
+import ConfirmModal from '@/components/ConfirmModal'
 import { SkeletonTable } from '@/components/Skeleton'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 export default function CampanasPage() {
   const [campanas, setCampanas] = useState<Campana[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleteTarget, setDeleteTarget] = useState<Campana | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetch('/api/campanas')
       .then(r => r.json())
       .then(data => { setCampanas(data); setLoading(false) })
   }, [])
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/campanas/${deleteTarget.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setCampanas((prev) => prev.filter((c) => c.id !== deleteTarget.id))
+      toast.success(`Campaña "${deleteTarget.titulo}" eliminada`)
+      setDeleteTarget(null)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'No se pudo eliminar la campaña'
+      toast.error(message)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -56,7 +78,7 @@ export default function CampanasPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#1a1a1a]">
-                {['Título', 'Canal', 'Estado', 'Fecha de envío', ''].map(h => (
+                {['Título', 'Canal', 'Estado', 'Fecha de envío', 'Acciones'].map(h => (
                   <th key={h} className="px-5 py-2.5 text-left text-[10px] font-medium text-zinc-600 uppercase tracking-widest">
                     {h}
                   </th>
@@ -76,12 +98,23 @@ export default function CampanasPage() {
                     {c.fecha_envio ? format(new Date(c.fecha_envio), "d MMM yyyy, HH:mm", { locale: es }) : '—'}
                   </td>
                   <td className="px-5 py-4">
-                    <Link
-                      href={`/campanas/${c.id}`}
-                      className="flex items-center gap-1 text-[11px] text-zinc-700 hover:text-violet-400 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      Ver <ChevronRight size={11} />
-                    </Link>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link
+                        href={`/campanas/${c.id}`}
+                        className="flex items-center gap-1 text-[11px] text-zinc-700 hover:text-violet-400 transition-colors px-2 py-1 rounded"
+                      >
+                        Ver <ChevronRight size={11} />
+                      </Link>
+                      {c.estado === 'enviada' && (
+                        <button
+                          onClick={() => setDeleteTarget(c)}
+                          className="p-1.5 text-zinc-700 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                          title="Eliminar campaña enviada"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -89,6 +122,16 @@ export default function CampanasPage() {
           </table>
         )}
       </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Eliminar campaña enviada"
+        description={`¿Seguro que querés eliminar "${deleteTarget?.titulo}"? También se eliminará el historial de envíos.`}
+        confirmLabel="Eliminar"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </div>
   )
 }

@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Send, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, Send, CheckCircle, XCircle, Trash2 } from 'lucide-react'
 import { Campana, Mensaje } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
+import ConfirmModal from '@/components/ConfirmModal'
 import { SkeletonText, SkeletonTable } from '@/components/Skeleton'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { toast } from 'sonner'
 
 interface CampanaDetail {
   campana: Campana
@@ -17,19 +19,16 @@ interface CampanaDetail {
 
 export default function CampanaDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [data, setData] = useState<CampanaDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetch(`/api/campanas/${id}`)
       .then(r => r.json())
-      .then(d => {
-        if (d.error) throw new Error(d.error)
-        setData(d)
-      })
-      .catch(e => setError(e.message ?? 'Error al cargar la campaña'))
-      .finally(() => setLoading(false))
+      .then(d => { setData(d); setLoading(false) })
   }, [id])
 
   if (loading) {
@@ -48,22 +47,29 @@ export default function CampanaDetailPage() {
     )
   }
 
-  if (error) return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <Link href="/campanas" className="inline-flex items-center gap-1.5 text-[12px] text-zinc-600 hover:text-zinc-300 transition-colors mb-5">
-        <ArrowLeft size={13} />
-        Campañas
-      </Link>
-      <p className="text-[13px] text-red-400">{error}</p>
-    </div>
-  )
-
   if (!data) return null
 
   const { campana, mensajes } = data
   const enviados = mensajes.filter(m => m.status === 'enviado').length
   const fallidos = mensajes.filter(m => m.status === 'fallido').length
   const tasa = mensajes.length > 0 ? Math.round((enviados / mensajes.length) * 100) : 0
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/campanas/${campana.id}`, { method: 'DELETE' })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+      toast.success('Campaña eliminada')
+      router.push('/campanas')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'No se pudo eliminar la campaña'
+      toast.error(message)
+    } finally {
+      setDeleting(false)
+      setDeleteOpen(false)
+    }
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -72,7 +78,7 @@ export default function CampanaDetailPage() {
         Campañas
       </Link>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-6 gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white mb-2">{campana.titulo}</h1>
           <div className="flex items-center gap-2">
@@ -85,6 +91,15 @@ export default function CampanaDetailPage() {
             )}
           </div>
         </div>
+        {campana.estado === 'enviada' && (
+          <button
+            onClick={() => setDeleteOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-zinc-400 hover:text-red-300 border border-[#2a2a2a] hover:border-red-500/30 rounded-lg transition-colors"
+          >
+            <Trash2 size={12} />
+            Eliminar
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -148,6 +163,16 @@ export default function CampanaDetailPage() {
           </table>
         )}
       </div>
+
+      <ConfirmModal
+        open={deleteOpen}
+        title="Eliminar campaña enviada"
+        description="Se borrará la campaña y su historial de destinatarios. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
+      />
     </div>
   )
 }
