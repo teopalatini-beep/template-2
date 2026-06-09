@@ -193,9 +193,10 @@ export default function ProductoresPage() {
   }, [productores])
 
   useEffect(() => {
+    const pendingMoves = pendingMovesRef.current
     return () => {
-      pendingMovesRef.current.forEach((pending) => clearTimeout(pending.timer))
-      pendingMovesRef.current.clear()
+      pendingMoves.forEach((pending) => clearTimeout(pending.timer))
+      pendingMoves.clear()
     }
   }, [])
 

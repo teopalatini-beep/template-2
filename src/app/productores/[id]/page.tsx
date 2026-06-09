@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare, Sparkles } from 'lucide-react'
@@ -23,7 +23,7 @@ export default function ProductorDetailPage() {
   const [copilotMessage, setCopilotMessage] = useState('')
   const [loadingCopilot, setLoadingCopilot] = useState(false)
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const [pRes, mRes] = await Promise.all([
       fetch(`/api/productores/${id}`),
       fetch(`/api/mensajes?productor_id=${id}`),
@@ -33,9 +33,9 @@ export default function ProductorDetailPage() {
     setProductor(p)
     setMensajes(m)
     setLoading(false)
-  }
+  }, [id, router])
 
-  useEffect(() => { fetchData() }, [id])
+  useEffect(() => { fetchData() }, [fetchData])
 
   const handleSave = () => {
     toast.success('Productor actualizado')

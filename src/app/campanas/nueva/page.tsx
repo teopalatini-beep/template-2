@@ -12,6 +12,7 @@ export default function NuevaCampanaPage() {
   const router = useRouter()
   const [titulo, setTitulo] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [emailHtmlTemplate, setEmailHtmlTemplate] = useState('')
   const [abTest, setAbTest] = useState(false)
   const [mensajeA, setMensajeA] = useState('')
   const [mensajeB, setMensajeB] = useState('')
@@ -89,6 +90,7 @@ export default function NuevaCampanaPage() {
           ab_test: abTest,
           mensaje_a: mensajeA,
           mensaje_b: mensajeB,
+          email_html_template: canal === 'email' ? emailHtmlTemplate : undefined,
         }),
       })
       const data = await res.json()
@@ -231,6 +233,25 @@ export default function NuevaCampanaPage() {
               </div>
             )}
           </div>
+
+          {canal === 'email' && (
+            <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Template HTML (opcional)</label>
+                <span className="text-[10px] text-zinc-700">Se usa en el envío real</span>
+              </div>
+              <textarea
+                value={emailHtmlTemplate}
+                onChange={(e) => setEmailHtmlTemplate(e.target.value)}
+                rows={10}
+                placeholder="<html>...tu template...</html>"
+                className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2 text-[12px] text-zinc-200 font-mono resize-y"
+              />
+              <p className="text-[10px] text-zinc-700 mt-1.5">
+                Variables disponibles: {'{{titulo}}'}, {'{{mensaje}}'}, {'{{nombre}}'}, {'{{empresa}}'}, {'{{email}}'}.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Destinatarios — 2 cols */}

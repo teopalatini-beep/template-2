@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic'
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
 
+function renderTemplate(template: string, context: Record<string, string>): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => context[key] ?? '')
+}
+
 export async function POST(request: Request) {
   const resendApiKey = process.env.RESEND_API_KEY
   if (!resendApiKey) {
@@ -17,7 +21,16 @@ export async function POST(request: Request) {
   }
   const resend = new Resend(resendApiKey)
 
-  const { campana_id, titulo, mensaje, productor_ids, ab_test, mensaje_a, mensaje_b } = await request.json()
+  const {
+    campana_id,
+    titulo,
+    mensaje,
+    productor_ids,
+    ab_test,
+    mensaje_a,
+    mensaje_b,
+    email_html_template,
+  } = await request.json()
   const varianteA = (mensaje_a || mensaje || '').trim()
   const varianteB = (mensaje_b || mensaje || '').trim()
   const usaAB = Boolean(ab_test && varianteA && varianteB && varianteA !== varianteB)
@@ -27,7 +40,7 @@ export async function POST(request: Request) {
 
   const { data: productores, error: prodError } = await supabase
     .from('productores')
-    .select('id, nombre, email')
+    .select('id, nombre, empresa, email')
     .in('id', productor_ids)
 
   if (prodError) return NextResponse.json({ error: prodError.message }, { status: 500 })
@@ -60,11 +73,23 @@ export async function POST(request: Request) {
       status = 'fallido'
     } else {
       try {
+        const htmlTemplate = typeof email_html_template === 'string' ? email_html_template.trim() : ''
+        const htmlContent = htmlTemplate
+          ? renderTemplate(htmlTemplate, {
+              titulo: titulo ?? '',
+              mensaje: outboundMessage,
+              nombre: productor.nombre ?? '',
+              empresa: productor.empresa ?? '',
+              email: productor.email ?? '',
+            })
+          : undefined
+
         const { error } = await resend.emails.send({
           from: 'contacto@ticketera.com.ar',
           to: productor.email,
           subject: titulo,
           text: outboundMessage,
+          html: htmlContent,
         })
         if (error) status = 'fallido'
       } catch {

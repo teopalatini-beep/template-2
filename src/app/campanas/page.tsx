@@ -66,9 +66,10 @@ export default function CampanasPage() {
   }
 
   useEffect(() => {
+    const pendingDeletes = pendingDeletesRef.current
     return () => {
-      pendingDeletesRef.current.forEach((pending) => clearTimeout(pending.timer))
-      pendingDeletesRef.current.clear()
+      pendingDeletes.forEach((pending) => clearTimeout(pending.timer))
+      pendingDeletes.clear()
     }
   }, [])
 

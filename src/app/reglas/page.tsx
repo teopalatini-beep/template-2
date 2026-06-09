@@ -208,7 +208,7 @@ export default function ReglasPage() {
                   <div>
                     <p className="text-[13px] text-zinc-200">{rule.nombre}</p>
                     <p className="text-[11px] text-zinc-600 mt-0.5">
-                      {rule.trigger} -> {rule.action}
+                      {rule.trigger}{' -> '}{rule.action}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

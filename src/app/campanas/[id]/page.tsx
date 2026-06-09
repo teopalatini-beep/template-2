@@ -42,6 +42,12 @@ export default function CampanaDetailPage() {
       .then(d => { setData(d); setLoading(false) })
   }, [id])
 
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    }
+  }, [])
+
   if (loading) {
     return (
       <div className="p-8 max-w-4xl mx-auto">
@@ -115,12 +121,6 @@ export default function CampanaDetailPage() {
     })
     setDeleting(false)
   }
-
-  useEffect(() => {
-    return () => {
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-    }
-  }, [])
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
