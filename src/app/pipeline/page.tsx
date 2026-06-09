@@ -35,9 +35,6 @@ function PipelineCard({ productor, isDragging, isStale, diasStale, onDragStart, 
   const [saving, setSaving] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const dias = Math.floor((Date.now() - new Date(productor.created_at).getTime()) / 86400000)
-  void dias
-
   useEffect(() => {
     if (showNote) textareaRef.current?.focus()
   }, [showNote])
@@ -293,15 +290,15 @@ export default function PipelinePage() {
     if (!productor || (productor.pipeline_etapa ?? 'nuevo') === etapaKey) return
     const prevEtapa = productor.pipeline_etapa ?? 'nuevo'
     setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: etapaKey } : p))
-    const res = await fetch(`/api/productores/${id}`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/productores/${id}/etapa`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pipeline_etapa: etapaKey }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       setProductores(prev => prev.map(p => p.id === id ? { ...p, pipeline_etapa: prevEtapa } : p))
-      toast.error(`Error al cambiar etapa: ${err.error ?? res.status}`)
+      toast.error(`Error: ${err.error ?? res.status}`)
     } else {
       toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
     }
@@ -321,8 +318,8 @@ export default function PipelinePage() {
     setProductores(prev => prev.map(p => p.id === draggedId ? { ...p, pipeline_etapa: etapaKey } : p))
     setDraggedId(null)
 
-    const res = await fetch(`/api/productores/${draggedId}`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/productores/${draggedId}/etapa`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pipeline_etapa: etapaKey }),
     })
@@ -330,7 +327,7 @@ export default function PipelinePage() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       setProductores(prev => prev.map(p => p.id === draggedId ? { ...p, pipeline_etapa: prevEtapa } : p))
-      toast.error(`Error al mover: ${err.error ?? res.status}`)
+      toast.error(`Error: ${err.error ?? res.status}`)
     } else {
       toast.success(`Movido a ${ETAPAS.find(e => e.key === etapaKey)?.label}`)
     }
