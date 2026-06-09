@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
 import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -66,16 +66,29 @@ function buildEmailHTML(titulo: string, contenido: string): string {
 </html>`
 }
 
+function getSESClient() {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
+  const region = process.env.AWS_SES_REGION ?? 'sa-east-1'
+
+  if (!accessKeyId || !secretAccessKey) return null
+
+  return new SESClient({
+    region,
+    credentials: { accessKeyId, secretAccessKey },
+  })
+}
+
 export async function POST(request: Request) {
-  const resendApiKey = process.env.RESEND_API_KEY
-  if (!resendApiKey) {
+  const ses = getSESClient()
+  if (!ses) {
     return NextResponse.json(
-      { error: 'Falta RESEND_API_KEY en variables de entorno' },
+      { error: 'Faltan AWS_ACCESS_KEY_ID o AWS_SECRET_ACCESS_KEY en variables de entorno' },
       { status: 500 }
     )
   }
-  const resend = new Resend(resendApiKey)
 
+  const fromEmail = process.env.AWS_SES_FROM_EMAIL ?? 'simplepass@simplepass.com.ar'
   const { campana_id, titulo, mensaje, productor_ids } = await request.json()
 
   const { data: productores, error: prodError } = await supabase
@@ -103,8 +116,7 @@ export async function POST(request: Request) {
   }
 
   const htmlBody = buildEmailHTML(titulo, mensaje)
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
-  const isTestSender = fromEmail === 'onboarding@resend.dev'
+  const textBody = mensaje.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
 
   const results: { productor_id: string; status: string; error?: string }[] = []
 
@@ -117,20 +129,17 @@ export async function POST(request: Request) {
       errorMsg = 'Sin email'
     } else {
       try {
-        const { data: sendData, error } = await resend.emails.send({
-          from: fromEmail,
-          to: productor.email,
-          subject: titulo,
-          html: htmlBody,
-          text: mensaje.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
-        })
-        if (error) {
-          status = 'fallido'
-          errorMsg = error.message
-        } else if (isTestSender && sendData) {
-          // onboarding@resend.dev only delivers to the Resend account owner's email
-          status = 'enviado_test'
-        }
+        await ses.send(new SendEmailCommand({
+          Source: fromEmail,
+          Destination: { ToAddresses: [productor.email] },
+          Message: {
+            Subject: { Data: titulo, Charset: 'UTF-8' },
+            Body: {
+              Html: { Data: htmlBody, Charset: 'UTF-8' },
+              Text: { Data: textBody, Charset: 'UTF-8' },
+            },
+          },
+        }))
       } catch (e: unknown) {
         status = 'fallido'
         errorMsg = e instanceof Error ? e.message : 'Error desconocido'
@@ -143,16 +152,12 @@ export async function POST(request: Request) {
       canal: 'email',
       contenido: mensaje,
       status,
-      enviado_at: ['enviado', 'enviado_test'].includes(status) ? new Date().toISOString() : null,
+      enviado_at: status === 'enviado' ? new Date().toISOString() : null,
     }])
 
     results.push({ productor_id: productor.id, status, ...(errorMsg ? { error: errorMsg } : {}) })
-    await delay(500)
+    await delay(300)
   }
 
-  const warnings = isTestSender
-    ? ['Usando onboarding@resend.dev — los emails solo se entregan al dueño de la cuenta Resend. Configurá RESEND_FROM_EMAIL con un dominio verificado para enviar a cualquier destinatario.']
-    : []
-
-  return NextResponse.json({ campana_id: campanaId, results, warnings })
+  return NextResponse.json({ campana_id: campanaId, results, warnings: [] })
 }

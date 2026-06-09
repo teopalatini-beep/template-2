@@ -35,7 +35,6 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Schedule automated email sequences for new producer
   if (data.email) {
     const { data: secuencias } = await supabase
       .from('secuencias')
