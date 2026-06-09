@@ -41,7 +41,9 @@ export async function POST(request: Request) {
 
   const results: { productor_id: string; status: string }[] = []
 
-  for (const [index, productor] of (productores ?? []).entries()) {
+  const list = productores ?? []
+  for (let index = 0; index < list.length; index++) {
+    const productor = list[index]
     let status = 'enviado'
     const variant = usaAB ? (index % 2 === 0 ? 'A' : 'B') : null
     const outboundMessage = variant === 'B' ? varianteB : varianteA
