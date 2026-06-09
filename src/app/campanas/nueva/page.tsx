@@ -8,10 +8,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Productor, Canal } from '@/lib/types'
-import StatusBadge from '@/components/StatusBadge'
 import { toast } from 'sonner'
 
-// ─── Rich email editor ───────────────────────────────────────────────────────
+// ─── Rich email editor ────────────────────────────────────────────────
 
 function ToolbarBtn({ onClick, title, children, active }: {
   onClick: () => void
@@ -147,9 +146,7 @@ function EmailPreviewCard({ content }: { content: string }) {
   )
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function NuevaCampanaPage() {
   const router = useRouter()
@@ -176,7 +173,7 @@ export default function NuevaCampanaPage() {
         body: JSON.stringify({ titulo, canal }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error ?? 'Error al generar')
       const html = data.message
         .split('\n\n')
         .map((p: string) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
@@ -231,7 +228,9 @@ export default function NuevaCampanaPage() {
       if (!res.ok) throw new Error(data.error ?? 'Error al enviar')
       const enviados = (data.results ?? []).filter((r: { status: string }) => r.status === 'enviado').length
       toast.success(`Campaña enviada a ${enviados} destinatario${enviados !== 1 ? 's' : ''}`, { id: toastId })
-      // Redirect to list — avoids detail page ID format issues
+      if (data.warnings?.length) {
+        setTimeout(() => toast.warning(data.warnings[0]), 800)
+      }
       router.push('/campanas')
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al enviar', { id: toastId })

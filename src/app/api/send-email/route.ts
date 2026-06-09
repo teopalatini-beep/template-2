@@ -104,25 +104,36 @@ export async function POST(request: Request) {
 
   const htmlBody = buildEmailHTML(titulo, mensaje)
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
-  const results: { productor_id: string; status: string }[] = []
+  const isTestSender = fromEmail === 'onboarding@resend.dev'
+
+  const results: { productor_id: string; status: string; error?: string }[] = []
 
   for (const productor of productores ?? []) {
     let status = 'enviado'
+    let errorMsg: string | undefined
 
     if (!productor.email) {
       status = 'fallido'
+      errorMsg = 'Sin email'
     } else {
       try {
-        const { error } = await resend.emails.send({
+        const { data: sendData, error } = await resend.emails.send({
           from: fromEmail,
           to: productor.email,
           subject: titulo,
           html: htmlBody,
           text: mensaje.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
         })
-        if (error) status = 'fallido'
-      } catch {
+        if (error) {
+          status = 'fallido'
+          errorMsg = error.message
+        } else if (isTestSender && sendData) {
+          // onboarding@resend.dev only delivers to the Resend account owner's email
+          status = 'enviado_test'
+        }
+      } catch (e: unknown) {
         status = 'fallido'
+        errorMsg = e instanceof Error ? e.message : 'Error desconocido'
       }
     }
 
@@ -132,12 +143,16 @@ export async function POST(request: Request) {
       canal: 'email',
       contenido: mensaje,
       status,
-      enviado_at: status === 'enviado' ? new Date().toISOString() : null,
+      enviado_at: ['enviado', 'enviado_test'].includes(status) ? new Date().toISOString() : null,
     }])
 
-    results.push({ productor_id: productor.id, status })
+    results.push({ productor_id: productor.id, status, ...(errorMsg ? { error: errorMsg } : {}) })
     await delay(500)
   }
 
-  return NextResponse.json({ campana_id: campanaId, results })
+  const warnings = isTestSender
+    ? ['Usando onboarding@resend.dev — los emails solo se entregan al dueño de la cuenta Resend. Configurá RESEND_FROM_EMAIL con un dominio verificado para enviar a cualquier destinatario.']
+    : []
+
+  return NextResponse.json({ campana_id: campanaId, results, warnings })
 }
