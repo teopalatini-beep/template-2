@@ -21,6 +21,14 @@ export interface Productor {
 export type EstadoCampana = 'borrador' | 'enviada' | 'fallida'
 export type Canal = 'whatsapp' | 'email'
 
+export interface CampanaStats {
+  total: number
+  enviados: number
+  respondidos: number
+  deliveryRate: number | null
+  responseRate: number | null
+}
+
 export interface Campana {
   id: string
   titulo: string
@@ -29,6 +37,7 @@ export interface Campana {
   estado: EstadoCampana
   fecha_envio: string | null
   created_at: string
+  stats?: CampanaStats
 }
 
 export type EstadoMensaje = 'pendiente' | 'enviado' | 'fallido'

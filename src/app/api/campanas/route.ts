@@ -6,11 +6,30 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const { data, error } = await supabase
     .from('campanas')
-    .select('*')
+    .select('*, mensajes(status, respondio)')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  const enriched = (data ?? []).map(c => {
+    const msgs: { status: string; respondio: boolean | null }[] = c.mensajes ?? []
+    const total = msgs.length
+    const enviados = msgs.filter(m => m.status === 'enviado').length
+    const respondidos = msgs.filter(m => m.respondio).length
+    const { mensajes: _msgs, ...rest } = c
+    return {
+      ...rest,
+      stats: {
+        total,
+        enviados,
+        respondidos,
+        deliveryRate: total > 0 ? Math.round((enviados / total) * 100) : null,
+        responseRate: enviados > 0 ? Math.round((respondidos / enviados) * 100) : null,
+      },
+    }
+  })
+
+  return NextResponse.json(enriched)
 }
 
 export async function POST(request: Request) {
