@@ -1,4 +1,5 @@
 export type EstadoProductor = 'prospecto' | 'activo' | 'inactivo'
+export type PipelineEtapa = 'nuevo' | 'contactado' | 'propuesta' | 'negociacion' | 'cerrado' | 'perdido'
 
 export interface Productor {
   id: string
@@ -10,6 +11,9 @@ export interface Productor {
   estado: EstadoProductor
   notas: string | null
   created_at: string
+  pipeline_etapa?: PipelineEtapa | null
+  tags?: string[] | null
+  valor_estimado?: number | null
 }
 
 export type EstadoCampana = 'borrador' | 'enviada' | 'fallida'
