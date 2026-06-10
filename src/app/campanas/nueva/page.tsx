@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Sparkles, Send, Search, CheckSquare, Square, ChevronLeft, FileText, Save, Eye, EyeOff, Layers } from 'lucide-react'
 import Link from 'next/link'
@@ -30,7 +30,7 @@ function applyVars(text: string, p?: Productor | null) {
     .replace(/\{pais\}/g, (p as Productor & { pais?: string }).pais ?? '')
 }
 
-export default function NuevaCampanaPage() {
+function NuevaCampanaInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [titulo, setTitulo] = useState('')
@@ -508,5 +508,13 @@ export default function NuevaCampanaPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NuevaCampanaPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-zinc-600 text-sm">Cargando...</div>}>
+      <NuevaCampanaInner />
+    </Suspense>
   )
 }
