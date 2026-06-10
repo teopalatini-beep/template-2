@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Sparkles, Send, Search, CheckSquare, Square, ChevronLeft, FileText, Save, Eye, EyeOff } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Sparkles, Send, Search, CheckSquare, Square, ChevronLeft, FileText, Save, Eye, EyeOff, Layers } from 'lucide-react'
 import Link from 'next/link'
 import { Productor, Canal } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import { toast } from 'sonner'
+import { loadSegments, applySegment } from '@/lib/segments'
 
 const TEMPLATES_KEY = 'crm_msg_templates'
 type MsgTemplate = { id: string; nombre: string; canal: Canal; contenido: string }
@@ -31,6 +32,7 @@ function applyVars(text: string, p?: Productor | null) {
 
 export default function NuevaCampanaPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [titulo, setTitulo] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [emailHtmlTemplate, setEmailHtmlTemplate] = useState('')
@@ -46,13 +48,27 @@ export default function NuevaCampanaPage() {
   const [showPreview, setShowPreview] = useState(false)
   const [templates, setTemplates] = useState<MsgTemplate[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showSegmentos, setShowSegmentos] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => { setTemplates(loadTemplates()) }, [])
 
   useEffect(() => {
-    fetch('/api/productores').then(r => r.json()).then(setProductores)
-  }, [])
+    fetch('/api/productores').then(r => r.json()).then((data: Productor[]) => {
+      setProductores(data)
+      const segId = searchParams.get('segmento')
+      if (segId) {
+        const segs = loadSegments()
+        const seg = segs.find(s => s.id === segId)
+        if (seg) {
+          const matches = applySegment(data, seg)
+          setSelected(new Set(matches.map(p => p.id)))
+          if (seg.canal) setCanal(seg.canal)
+          toast.success(`Segmento "${seg.nombre}" cargado: ${matches.length} productores`)
+        }
+      }
+    })
+  }, [searchParams])
 
   const insertVar = useCallback((variable: string) => {
     const el = textareaRef.current
@@ -395,11 +411,48 @@ export default function NuevaCampanaPage() {
           <div className="px-4 py-3.5 border-b border-[#1a1a1a]">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[13px] font-medium text-white">Destinatarios</p>
-              {selected.size > 0 && (
-                <span className="text-[11px] text-violet-400 bg-violet-500/8 border border-violet-500/15 rounded-md px-2 py-0.5">
-                  {selected.size} sel.
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {selected.size > 0 && (
+                  <span className="text-[11px] text-violet-400 bg-violet-500/8 border border-violet-500/15 rounded-md px-2 py-0.5">
+                    {selected.size} sel.
+                  </span>
+                )}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSegmentos(p => !p)}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] border border-[#2a2a2a] text-zinc-500 hover:text-violet-300 hover:border-violet-500/30 rounded-md transition-all"
+                  >
+                    <Layers size={10} />
+                    Segmento
+                  </button>
+                  {showSegmentos && (
+                    <div className="absolute top-full right-0 mt-1 w-56 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-20 overflow-hidden">
+                      {loadSegments().length === 0 ? (
+                        <p className="px-3 py-2.5 text-[11px] text-zinc-600">
+                          Sin segmentos. <Link href="/segmentos" className="text-violet-400 underline">Crear uno →</Link>
+                        </p>
+                      ) : loadSegments().map(seg => {
+                        const matches = applySegment(productores, seg)
+                        return (
+                          <button
+                            key={seg.id}
+                            onClick={() => {
+                              setSelected(new Set(matches.map(p => p.id)))
+                              if (seg.canal) setCanal(seg.canal)
+                              setShowSegmentos(false)
+                              toast.success(`"${seg.nombre}": ${matches.length} productores seleccionados`)
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 text-left group"
+                          >
+                            <span className="text-[12px] text-zinc-300 truncate">{seg.nombre}</span>
+                            <span className="text-[10px] text-zinc-600">{matches.length}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="relative">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" />

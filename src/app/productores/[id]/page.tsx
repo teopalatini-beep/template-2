@@ -1,9 +1,11 @@
 'use client'
 
+'use client'
+
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare, Sparkles } from 'lucide-react'
+import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare, Sparkles, CheckCircle2, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { Productor, Mensaje, CopilotSuggestion } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
@@ -22,6 +24,8 @@ export default function ProductorDetailPage() {
   const [copilot, setCopilot] = useState<CopilotSuggestion | null>(null)
   const [copilotMessage, setCopilotMessage] = useState('')
   const [loadingCopilot, setLoadingCopilot] = useState(false)
+  const [expandedMsg, setExpandedMsg] = useState<string | null>(null)
+  const [notaInputs, setNotaInputs] = useState<Record<string, string>>({})
 
   const fetchData = useCallback(async () => {
     const [pRes, mRes] = await Promise.all([
@@ -40,6 +44,40 @@ export default function ProductorDetailPage() {
   const handleSave = () => {
     toast.success('Productor actualizado')
     fetchData()
+  }
+
+  const toggleRespondio = async (m: Mensaje) => {
+    const next = !m.respondio
+    setMensajes(prev => prev.map(x => x.id === m.id ? { ...x, respondio: next } : x))
+    try {
+      const nota = notaInputs[m.id] ?? m.nota_respuesta ?? ''
+      const res = await fetch(`/api/mensajes/${m.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ respondio: next, nota_respuesta: next ? nota : null }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(next ? 'Marcado como respondido' : 'Marcado sin respuesta')
+      if (next) setExpandedMsg(m.id)
+    } catch {
+      setMensajes(prev => prev.map(x => x.id === m.id ? { ...x, respondio: m.respondio } : x))
+      toast.error('No se pudo actualizar. Verificá que la columna respondio exista en Supabase.')
+    }
+  }
+
+  const saveNota = async (m: Mensaje) => {
+    const nota = notaInputs[m.id] ?? ''
+    try {
+      await fetch(`/api/mensajes/${m.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nota_respuesta: nota }),
+      })
+      setMensajes(prev => prev.map(x => x.id === m.id ? { ...x, nota_respuesta: nota } : x))
+      toast.success('Nota guardada')
+    } catch {
+      toast.error('Error al guardar la nota')
+    }
   }
 
   const loadCopilot = async () => {
@@ -192,12 +230,16 @@ export default function ProductorDetailPage() {
         )}
       </div>
 
-      {/* Historial */}
+      {/* Timeline omnicanal */}
       <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[#1a1a1a]">
           <MessageSquare size={13} className="text-zinc-600" />
-          <p className="text-[13px] font-medium text-white">Historial</p>
+          <p className="text-[13px] font-medium text-white">Conversación</p>
           <span className="text-[11px] text-zinc-600 ml-1">{mensajes.length} mensaje{mensajes.length !== 1 ? 's' : ''}</span>
+          <div className="ml-auto flex items-center gap-3 text-[10px] text-zinc-700">
+            <span className="flex items-center gap-1"><CheckCircle2 size={10} className="text-emerald-500" /> {mensajes.filter(m => m.respondio).length} respondidos</span>
+            <span className="flex items-center gap-1"><Clock size={10} className="text-amber-500" /> {mensajes.filter(m => m.status === 'enviado' && !m.respondio).length} sin respuesta</span>
+          </div>
         </div>
 
         {!mensajes.length ? (
@@ -207,22 +249,74 @@ export default function ProductorDetailPage() {
           </div>
         ) : (
           <div className="divide-y divide-[#111]">
-            {mensajes.map(m => (
-              <div key={m.id} className="px-5 py-4 hover:bg-white/[0.01] transition-colors">
-                <div className="flex items-center justify-between gap-4 mb-2">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={m.canal} />
-                    <StatusBadge status={m.status} />
+            {mensajes.map(m => {
+              const isExpanded = expandedMsg === m.id
+              const respondio = m.respondio ?? false
+              return (
+                <div key={m.id} className="px-5 py-4 hover:bg-white/[0.01] transition-colors">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StatusBadge status={m.canal} />
+                      <StatusBadge status={m.status} />
+                      {m.campanas && (
+                        <span className="text-[10px] text-zinc-600 bg-[#1a1a1a] rounded px-1.5 py-0.5 border border-[#222]">
+                          {(m.campanas as { titulo?: string }).titulo}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] text-zinc-700">
+                        {format(new Date(m.enviado_at ?? m.created_at), "d MMM, HH:mm", { locale: es })}
+                      </span>
+                      {m.status === 'enviado' && (
+                        <button
+                          onClick={() => toggleRespondio(m)}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-all ${
+                            respondio
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-amber-500/8 border-amber-500/20 text-amber-500 hover:border-amber-500/40'
+                          }`}
+                        >
+                          {respondio ? <CheckCircle2 size={10} /> : <Clock size={10} />}
+                          {respondio ? 'Respondió' : 'Sin respuesta'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setExpandedMsg(isExpanded ? null : m.id)}
+                        className="text-zinc-700 hover:text-zinc-400 transition-colors"
+                      >
+                        {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-[11px] text-zinc-700 shrink-0">
-                    {format(new Date(m.enviado_at ?? m.created_at), "d MMM yyyy, HH:mm", { locale: es })}
-                  </span>
+
+                  {m.contenido && (
+                    <p className={`text-[12px] text-zinc-600 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+                      {m.contenido}
+                    </p>
+                  )}
+
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-[#1a1a1a] space-y-2">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Nota de respuesta</p>
+                      <textarea
+                        rows={2}
+                        placeholder="Qué respondió, próximo paso, etc..."
+                        value={notaInputs[m.id] ?? m.nota_respuesta ?? ''}
+                        onChange={e => setNotaInputs(prev => ({ ...prev, [m.id]: e.target.value }))}
+                        className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[12px] text-zinc-300 resize-none focus:outline-none focus:border-violet-500/40 transition-all"
+                      />
+                      <button
+                        onClick={() => saveNota(m)}
+                        className="px-3 py-1 text-[11px] text-zinc-400 border border-[#2a2a2a] hover:text-white hover:border-[#3a3a3a] rounded-lg transition-all"
+                      >
+                        Guardar nota
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {m.contenido && (
-                  <p className="text-[12px] text-zinc-600 leading-relaxed line-clamp-2">{m.contenido}</p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

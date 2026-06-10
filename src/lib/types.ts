@@ -42,6 +42,8 @@ export interface Mensaje {
   status: EstadoMensaje
   enviado_at: string | null
   created_at: string
+  respondio?: boolean | null
+  nota_respuesta?: string | null
   productores?: Productor
   campanas?: Campana
 }
