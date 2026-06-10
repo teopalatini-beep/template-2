@@ -1,12 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Send, Search, CheckSquare, Square, ChevronLeft } from 'lucide-react'
+import { Sparkles, Send, Search, CheckSquare, Square, ChevronLeft, FileText, Save, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import { Productor, Canal } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import { toast } from 'sonner'
+
+const TEMPLATES_KEY = 'crm_msg_templates'
+type MsgTemplate = { id: string; nombre: string; canal: Canal; contenido: string }
+
+function loadTemplates(): MsgTemplate[] {
+  try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY) ?? '[]') } catch { return [] }
+}
+function saveTemplates(tpls: MsgTemplate[]) {
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(tpls))
+}
+
+const VARIABLES = ['{nombre}', '{empresa}', '{tipo_evento}', '{pais}'] as const
+
+function applyVars(text: string, p?: Productor | null) {
+  if (!p) return text
+  return text
+    .replace(/\{nombre\}/g, p.nombre)
+    .replace(/\{empresa\}/g, p.empresa ?? '')
+    .replace(/\{tipo_evento\}/g, p.tipo_evento ?? '')
+    .replace(/\{pais\}/g, (p as Productor & { pais?: string }).pais ?? '')
+}
 
 export default function NuevaCampanaPage() {
   const router = useRouter()
@@ -22,10 +43,53 @@ export default function NuevaCampanaPage() {
   const [search, setSearch] = useState('')
   const [loadingIA, setLoadingIA] = useState(false)
   const [loadingEnvio, setLoadingEnvio] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [templates, setTemplates] = useState<MsgTemplate[]>([])
+  const [showTemplates, setShowTemplates] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => { setTemplates(loadTemplates()) }, [])
 
   useEffect(() => {
     fetch('/api/productores').then(r => r.json()).then(setProductores)
   }, [])
+
+  const insertVar = useCallback((variable: string) => {
+    const el = textareaRef.current
+    if (!el) return
+    const start = el.selectionStart ?? mensaje.length
+    const end = el.selectionEnd ?? mensaje.length
+    const next = mensaje.slice(0, start) + variable + mensaje.slice(end)
+    setMensaje(next)
+    setTimeout(() => {
+      el.focus()
+      el.setSelectionRange(start + variable.length, start + variable.length)
+    }, 0)
+  }, [mensaje])
+
+  const saveTemplate = useCallback(() => {
+    const contenido = abTest ? mensajeA : mensaje
+    if (!contenido.trim()) { toast.error('El mensaje está vacío'); return }
+    const nombre = window.prompt('Nombre del template:')?.trim()
+    if (!nombre) return
+    const newTpl: MsgTemplate = { id: Date.now().toString(), nombre, canal, contenido }
+    const updated = [...templates, newTpl]
+    saveTemplates(updated)
+    setTemplates(updated)
+    toast.success(`Template "${nombre}" guardado`)
+  }, [abTest, mensaje, mensajeA, canal, templates])
+
+  const loadTemplate = useCallback((tpl: MsgTemplate) => {
+    if (abTest) { setMensajeA(tpl.contenido) } else { setMensaje(tpl.contenido) }
+    setShowTemplates(false)
+    toast.success(`Template "${tpl.nombre}" cargado`)
+  }, [abTest])
+
+  const deleteTemplate = useCallback((id: string) => {
+    const updated = templates.filter(t => t.id !== id)
+    saveTemplates(updated)
+    setTemplates(updated)
+  }, [templates])
 
   const generarConIA = async () => {
     setLoadingIA(true)
@@ -46,6 +110,8 @@ export default function NuevaCampanaPage() {
       setLoadingIA(false)
     }
   }
+
+  const previewProductor = productores.find(p => selected.has(p.id)) ?? productores[0] ?? null
 
   const filteredProductores = productores.filter(p => {
     const hasContact = canal === 'whatsapp' ? !!p.telefono : !!p.email
@@ -169,21 +235,61 @@ export default function NuevaCampanaPage() {
 
           {/* Mensaje */}
           <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Mensaje</label>
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <label className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest mr-auto">Mensaje</label>
+              <button
+                type="button"
+                onClick={() => setAbTest((prev) => !prev)}
+                className={`px-2.5 py-1 text-[10px] rounded-md border transition-colors ${
+                  abTest ? 'border-violet-500/40 text-violet-300 bg-violet-500/10' : 'border-[#2a2a2a] text-zinc-500'
+                }`}
+              >
+                A/B test
+              </button>
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setAbTest((prev) => !prev)}
-                  className={`px-2.5 py-1 text-[10px] rounded-md border transition-colors ${
-                    abTest
-                      ? 'border-violet-500/40 text-violet-300 bg-violet-500/10'
-                      : 'border-[#2a2a2a] text-zinc-500'
-                  }`}
+                  onClick={() => setShowTemplates(p => !p)}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] border border-[#2a2a2a] text-zinc-500 hover:text-zinc-300 rounded-md transition-colors"
                 >
-                  A/B test
+                  <FileText size={10} />
+                  Templates
                 </button>
+                {showTemplates && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-20 overflow-hidden">
+                    {templates.filter(t => t.canal === canal).length === 0 ? (
+                      <p className="px-3 py-2.5 text-[11px] text-zinc-600">Sin templates para {canal}</p>
+                    ) : templates.filter(t => t.canal === canal).map(tpl => (
+                      <div key={tpl.id} className="flex items-center gap-1 px-3 py-2 hover:bg-white/5 group">
+                        <button onClick={() => loadTemplate(tpl)} className="flex-1 text-left text-[12px] text-zinc-300 truncate">
+                          {tpl.nombre}
+                        </button>
+                        <button onClick={() => deleteTemplate(tpl.id)} className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+              <button
+                type="button"
+                onClick={saveTemplate}
+                className="flex items-center gap-1 px-2.5 py-1 text-[10px] border border-[#2a2a2a] text-zinc-500 hover:text-zinc-300 rounded-md transition-colors"
+              >
+                <Save size={10} />
+                Guardar
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPreview(p => !p)}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[10px] border rounded-md transition-colors ${
+                  showPreview ? 'border-violet-500/40 text-violet-300' : 'border-[#2a2a2a] text-zinc-500'
+                }`}
+              >
+                {showPreview ? <EyeOff size={10} /> : <Eye size={10} />}
+                Preview
+              </button>
               <button
                 type="button"
                 onClick={generarConIA}
@@ -194,15 +300,45 @@ export default function NuevaCampanaPage() {
                 {loadingIA ? 'Generando...' : 'Generar con IA'}
               </button>
             </div>
+
+            {/* Variable insertion chips */}
+            {!abTest && (
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                <span className="text-[10px] text-zinc-700">Insertar:</span>
+                {VARIABLES.map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => insertVar(v)}
+                    className="px-2 py-0.5 text-[10px] font-mono bg-[#1a1a1a] border border-[#2a2a2a] text-zinc-400 hover:text-violet-300 hover:border-violet-500/40 rounded transition-all"
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {!abTest ? (
               <>
-                <textarea
-                  value={mensaje}
-                  onChange={e => setMensaje(e.target.value)}
-                  rows={11}
-                  placeholder="Escribí el mensaje acá o usá la IA para generar uno..."
-                  className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-violet-500/40 transition-all resize-none leading-relaxed"
-                />
+                {showPreview ? (
+                  <div className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-[13px] text-zinc-300 min-h-[200px] whitespace-pre-wrap leading-relaxed">
+                    {applyVars(mensaje, previewProductor) || <span className="text-zinc-700">Vista previa del mensaje...</span>}
+                    {previewProductor && (
+                      <p className="mt-3 pt-3 border-t border-[#1f1f1f] text-[10px] text-zinc-600">
+                        Previsualizado con: <span className="text-zinc-400">{previewProductor.nombre}</span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    value={mensaje}
+                    onChange={e => setMensaje(e.target.value)}
+                    rows={11}
+                    placeholder="Escribí el mensaje acá o usá la IA para generar uno..."
+                    className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-violet-500/40 transition-all resize-none leading-relaxed"
+                  />
+                )}
                 <p className="text-[10px] text-zinc-700 mt-1.5">{mensaje.length} caracteres</p>
               </>
             ) : (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 import { Productor, EstadoProductor } from '@/lib/types'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -51,6 +51,9 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
   const [serverError, setServerError] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [campos, setCampos] = useState<{ clave: string; valor: string }[]>([])
+  const [campoKey, setCampoKey] = useState('')
+  const [campoVal, setCampoVal] = useState('')
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -76,6 +79,10 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
       setTags(productor?.tags ?? [])
       setTagInput('')
       setServerError('')
+      const cf = productor?.campos_personalizados ?? {}
+      setCampos(Object.entries(cf).map(([clave, valor]) => ({ clave, valor: String(valor) })))
+      setCampoKey('')
+      setCampoVal('')
     }
   }, [open, productor, reset])
 
@@ -104,6 +111,10 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
           ...data,
           tags,
           valor_estimado: data.valor_estimado ? Number(data.valor_estimado) : null,
+          campos_personalizados: campos.reduce((acc, { clave, valor }) => {
+            if (clave.trim()) acc[clave.trim()] = valor
+            return acc
+          }, {} as Record<string, string>),
         }),
       })
       if (!res.ok) {
@@ -196,6 +207,71 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
                   />
                 </div>
               </Field>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-[11px] font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">
+                Campos personalizados
+              </label>
+              <div className="space-y-1.5 mb-2">
+                {campos.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      value={c.clave}
+                      onChange={e => setCampos(prev => prev.map((x, j) => j === i ? { ...x, clave: e.target.value } : x))}
+                      placeholder="Campo"
+                      className="flex-1 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[12px] text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/60 transition-all"
+                    />
+                    <span className="text-zinc-700">:</span>
+                    <input
+                      value={c.valor}
+                      onChange={e => setCampos(prev => prev.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))}
+                      placeholder="Valor"
+                      className="flex-1 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[12px] text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/60 transition-all"
+                    />
+                    <button type="button" onClick={() => setCampos(prev => prev.filter((_, j) => j !== i))} className="text-zinc-600 hover:text-red-400 transition-colors">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  value={campoKey}
+                  onChange={e => setCampoKey(e.target.value)}
+                  placeholder="Nuevo campo"
+                  className="flex-1 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[12px] text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/60 transition-all"
+                />
+                <span className="text-zinc-700">:</span>
+                <input
+                  value={campoVal}
+                  onChange={e => setCampoVal(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (campoKey.trim()) {
+                        setCampos(prev => [...prev, { clave: campoKey.trim(), valor: campoVal }])
+                        setCampoKey('')
+                        setCampoVal('')
+                      }
+                    }
+                  }}
+                  placeholder="Valor"
+                  className="flex-1 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[12px] text-white placeholder-zinc-700 focus:outline-none focus:border-violet-500/60 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (campoKey.trim()) {
+                      setCampos(prev => [...prev, { clave: campoKey.trim(), valor: campoVal }])
+                      setCampoKey('')
+                      setCampoVal('')
+                    }
+                  }}
+                  className="p-1.5 text-zinc-600 hover:text-violet-400 hover:bg-violet-500/10 border border-[#2a2a2a] rounded-lg transition-all"
+                >
+                  <Plus size={13} />
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <Field label="Notas internas" error={errors.notas?.message}>

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, ChevronRight, Users, LayoutGrid, List, Tag } from 'lucide-react'
 import { EstadoProductor, Productor } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
@@ -91,6 +91,16 @@ function KanbanView({ productores, onEdit, onDelete, onMove }: {
                   {p.tipo_evento && (
                     <span className="mt-2 inline-block text-[10px] text-zinc-600 bg-[#1a1a1a] rounded px-1.5 py-0.5">{p.tipo_evento}</span>
                   )}
+                  {(p.tags ?? []).length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {(p.tags ?? []).slice(0, 2).map(tag => (
+                        <span key={tag} className="text-[10px] text-violet-400 bg-violet-500/8 border border-violet-500/15 rounded px-1.5 py-0.5">
+                          {tag}
+                        </span>
+                      ))}
+                      {(p.tags ?? []).length > 2 && <span className="text-[10px] text-zinc-700">+{(p.tags ?? []).length - 2}</span>}
+                    </div>
+                  )}
                 </div>
               ))}
               {items.length === 0 && (
@@ -110,12 +120,19 @@ export default function ProductoresPage() {
   const [search, setSearch] = useState('')
   const [estadoFilter, setEstadoFilter] = useState('')
   const [tipoFilter, setTipoFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [modalOpen, setModalOpen] = useState(false)
   const [editProductor, setEditProductor] = useState<Productor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Productor | null>(null)
   const [deleting, setDeleting] = useState(false)
   const pendingMovesRef = useRef(new Map<string, { previous: EstadoProductor; timer: ReturnType<typeof setTimeout> }>())
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>()
+    productores.forEach(p => (p.tags ?? []).forEach(t => s.add(t)))
+    return Array.from(s).sort()
+  }, [productores])
 
   const fetchProductores = useCallback(async () => {
     const res = await fetch('/api/productores')
@@ -205,7 +222,8 @@ export default function ProductoresPage() {
     const matchSearch = !search || p.nombre.toLowerCase().includes(q) || (p.empresa ?? '').toLowerCase().includes(q)
     const matchEstado = !estadoFilter || p.estado === estadoFilter
     const matchTipo = !tipoFilter || p.tipo_evento === tipoFilter
-    return matchSearch && matchEstado && matchTipo
+    const matchTag = !tagFilter || (p.tags ?? []).includes(tagFilter)
+    return matchSearch && matchEstado && matchTipo && matchTag
   })
 
   return (
@@ -263,9 +281,28 @@ export default function ProductoresPage() {
           {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        {(search || estadoFilter || tipoFilter) && (
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Tag size={11} className="text-zinc-600 shrink-0" />
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setTagFilter(prev => prev === tag ? '' : tag)}
+                className={`px-2 py-0.5 text-[11px] rounded-full border transition-all ${
+                  tagFilter === tag
+                    ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
+                    : 'border-[#2a2a2a] text-zinc-600 hover:border-zinc-500 hover:text-zinc-400'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {(search || estadoFilter || tipoFilter || tagFilter) && (
           <button
-            onClick={() => { setSearch(''); setEstadoFilter(''); setTipoFilter('') }}
+            onClick={() => { setSearch(''); setEstadoFilter(''); setTipoFilter(''); setTagFilter('') }}
             className="text-[12px] text-zinc-600 hover:text-zinc-300 transition-colors"
           >
             Limpiar filtros
@@ -312,7 +349,7 @@ export default function ProductoresPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#1a1a1a]">
-                {['Nombre', 'Empresa', 'Teléfono', 'Email', 'Tipo', 'Estado', ''].map(h => (
+                {['Nombre', 'Empresa', 'Teléfono', 'Email', 'Tipo', 'Tags', 'Estado', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-[10px] font-medium text-zinc-600 uppercase tracking-widest first:pl-5 last:pr-5">
                     {h}
                   </th>
@@ -332,6 +369,20 @@ export default function ProductoresPage() {
                   <td className="px-4 py-3.5 text-[12px] text-zinc-600 font-mono">{p.telefono || '—'}</td>
                   <td className="px-4 py-3.5 text-[12px] text-zinc-600">{p.email || '—'}</td>
                   <td className="px-4 py-3.5 text-[12px] text-zinc-600">{p.tipo_evento || '—'}</td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex flex-wrap gap-1">
+                      {(p.tags ?? []).slice(0, 3).map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => setTagFilter(tag)}
+                          className="px-1.5 py-0.5 text-[10px] bg-violet-500/8 text-violet-400 border border-violet-500/15 rounded hover:bg-violet-500/15 transition-all"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                      {(p.tags ?? []).length > 3 && <span className="text-[10px] text-zinc-700">+{(p.tags ?? []).length - 3}</span>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3.5"><StatusBadge status={p.estado} /></td>
                   <td className="px-4 py-3.5 pr-5">
                     <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
