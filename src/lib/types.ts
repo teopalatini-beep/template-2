@@ -14,6 +14,7 @@ export interface Productor {
   pipeline_etapa?: PipelineEtapa | null
   tags?: string[] | null
   valor_estimado?: number | null
+  pais?: string | null
 }
 
 export type EstadoCampana = 'borrador' | 'enviada' | 'fallida'
