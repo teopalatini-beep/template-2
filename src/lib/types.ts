@@ -16,6 +16,7 @@ export interface Productor {
   valor_estimado?: number | null
   pais?: string | null
   campos_personalizados?: Record<string, string> | null
+  asignado_a?: string | null
 }
 
 export type EstadoCampana = 'borrador' | 'enviada' | 'fallida'

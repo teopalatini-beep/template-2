@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Megaphone, PlusCircle, Search, Workflow, Layers } from 'lucide-react'
+import { LayoutDashboard, Users, Megaphone, PlusCircle, Search, Workflow, Layers, Bell } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/campanas/nueva', label: 'Nueva campaña', icon: PlusCircle },
   { href: '/reglas', label: 'Automatizaciones', icon: Workflow },
   { href: '/segmentos', label: 'Segmentos', icon: Layers },
+  { href: '/alertas', label: 'Alertas', icon: Bell },
 ]
 
 export default function Sidebar() {

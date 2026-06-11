@@ -17,6 +17,7 @@ const schema = z.object({
   estado: z.enum(['prospecto', 'activo', 'inactivo']),
   notas: z.string().optional(),
   valor_estimado: z.string().optional(),
+  asignado_a: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -72,9 +73,10 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
         estado: productor.estado,
         notas: productor.notas ?? '',
         valor_estimado: productor.valor_estimado != null ? String(productor.valor_estimado) : '',
+        asignado_a: productor.asignado_a ?? '',
       } : {
         nombre: '', empresa: '', telefono: '', email: '',
-        tipo_evento: '', pais: '', estado: 'prospecto', notas: '', valor_estimado: '',
+        tipo_evento: '', pais: '', estado: 'prospecto', notas: '', valor_estimado: '', asignado_a: '',
       })
       setTags(productor?.tags ?? [])
       setTagInput('')
@@ -111,6 +113,7 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
           ...data,
           tags,
           valor_estimado: data.valor_estimado ? Number(data.valor_estimado) : null,
+          asignado_a: data.asignado_a || null,
           campos_personalizados: campos.reduce((acc, { clave, valor }) => {
             if (clave.trim()) acc[clave.trim()] = valor
             return acc
@@ -272,6 +275,11 @@ export default function ProductorModal({ open, onClose, onSave, productor }: Pro
                   <Plus size={13} />
                 </button>
               </div>
+            </div>
+            <div className="col-span-2">
+              <Field label="Responsable (asignado a)" error={errors.asignado_a?.message}>
+                <input {...register('asignado_a')} placeholder="Ej: Martín, equipo ventas..." className={inputClass} />
+              </Field>
             </div>
             <div className="col-span-2">
               <Field label="Notas internas" error={errors.notas?.message}>

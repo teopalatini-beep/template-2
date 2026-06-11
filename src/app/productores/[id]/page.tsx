@@ -1,11 +1,9 @@
 'use client'
 
-'use client'
-
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare, Sparkles, CheckCircle2, Clock, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Pencil, Mail, Phone, Building2, Tag, StickyNote, MessageSquare, Sparkles, CheckCircle2, Clock, ChevronDown, ChevronUp, UserCheck, PhoneCall, Users, FileText, Send, Plus } from 'lucide-react'
 import { Productor, Mensaje, CopilotSuggestion } from '@/lib/types'
 import StatusBadge from '@/components/StatusBadge'
 import ProductorModal from '@/components/ProductorModal'
@@ -26,18 +24,45 @@ export default function ProductorDetailPage() {
   const [loadingCopilot, setLoadingCopilot] = useState(false)
   const [expandedMsg, setExpandedMsg] = useState<string | null>(null)
   const [notaInputs, setNotaInputs] = useState<Record<string, string>>({})
+  const [actividades, setActividades] = useState<Array<{ id: string; tipo: string; descripcion: string; created_at: string }>>([])
+  const [newActTipo, setNewActTipo] = useState('nota')
+  const [newActDesc, setNewActDesc] = useState('')
+  const [savingAct, setSavingAct] = useState(false)
 
   const fetchData = useCallback(async () => {
-    const [pRes, mRes] = await Promise.all([
+    const [pRes, mRes, aRes] = await Promise.all([
       fetch(`/api/productores/${id}`),
       fetch(`/api/mensajes?productor_id=${id}`),
+      fetch(`/api/productores/${id}/actividades`),
     ])
     if (!pRes.ok) { router.push('/productores'); return }
-    const [p, m] = await Promise.all([pRes.json(), mRes.json()])
+    const [p, m, a] = await Promise.all([pRes.json(), mRes.json(), aRes.json()])
     setProductor(p)
     setMensajes(m)
+    setActividades(Array.isArray(a) ? a : [])
     setLoading(false)
   }, [id, router])
+
+  const addActividad = async () => {
+    if (!newActDesc.trim()) return
+    setSavingAct(true)
+    try {
+      const res = await fetch(`/api/productores/${id}/actividades`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: newActTipo, descripcion: newActDesc.trim() }),
+      })
+      if (!res.ok) throw new Error()
+      const nueva = await res.json()
+      setActividades(prev => [nueva, ...prev])
+      setNewActDesc('')
+      toast.success('Nota registrada')
+    } catch {
+      toast.error('Error al guardar la nota')
+    } finally {
+      setSavingAct(false)
+    }
+  }
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -173,15 +198,26 @@ export default function ProductorDetailPage() {
           </div>
         </div>
 
-        {/* Notas */}
-        <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <StickyNote size={12} className="text-zinc-700" />
-            <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Notas</p>
+        {/* Notas + asignado */}
+        <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl p-5 space-y-4">
+          {productor.asignado_a && (
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <UserCheck size={12} className="text-violet-400" />
+                <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Responsable</p>
+              </div>
+              <p className="text-[13px] text-violet-300 font-medium">{productor.asignado_a}</p>
+            </div>
+          )}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <StickyNote size={12} className="text-zinc-700" />
+              <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">Notas generales</p>
+            </div>
+            <p className="text-[13px] text-zinc-500 leading-relaxed whitespace-pre-wrap">
+              {productor.notas || <span className="text-zinc-700 italic">Sin notas</span>}
+            </p>
           </div>
-          <p className="text-[13px] text-zinc-500 leading-relaxed whitespace-pre-wrap">
-            {productor.notas || <span className="text-zinc-700 italic">Sin notas</span>}
-          </p>
         </div>
       </div>
 
@@ -226,6 +262,82 @@ export default function ProductorDetailPage() {
             >
               Copiar mensaje sugerido
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* Notas internas / actividades */}
+      <div className="bg-[#141414] border border-[#1f1f1f] rounded-xl overflow-hidden mb-6">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[#1a1a1a]">
+          <FileText size={13} className="text-zinc-600" />
+          <p className="text-[13px] font-medium text-white">Notas internas</p>
+          <span className="text-[11px] text-zinc-600 ml-1">{actividades.length} registro{actividades.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {/* Form nueva nota */}
+        <div className="px-5 py-4 border-b border-[#1a1a1a] flex gap-3">
+          <select
+            value={newActTipo}
+            onChange={e => setNewActTipo(e.target.value)}
+            className="bg-[#0f0f0f] border border-[#222] text-zinc-400 text-[12px] rounded-lg px-2.5 py-2 focus:outline-none focus:border-violet-500/50"
+          >
+            <option value="nota">Nota</option>
+            <option value="llamada">Llamada</option>
+            <option value="reunion">Reunión</option>
+            <option value="email">Email</option>
+          </select>
+          <input
+            type="text"
+            value={newActDesc}
+            onChange={e => setNewActDesc(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addActividad()}
+            placeholder="Describí la actividad o nota..."
+            className="flex-1 bg-[#0f0f0f] border border-[#222] text-[12px] text-zinc-300 placeholder-zinc-700 rounded-lg px-3 py-2 focus:outline-none focus:border-violet-500/50"
+          />
+          <button
+            onClick={addActividad}
+            disabled={savingAct || !newActDesc.trim()}
+            className="px-3.5 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-[12px] font-medium rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <Plus size={13} />
+            Agregar
+          </button>
+        </div>
+
+        {/* Lista de actividades */}
+        {!actividades.length ? (
+          <div className="py-10 text-center">
+            <FileText size={20} className="text-zinc-800 mx-auto mb-2" />
+            <p className="text-[12px] text-zinc-700">Sin notas internas aún</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#0f0f0f]">
+            {actividades.map(act => {
+              const tipoConfig: Record<string, { icon: typeof PhoneCall; color: string; label: string }> = {
+                llamada: { icon: PhoneCall, color: 'text-sky-400', label: 'Llamada' },
+                reunion:  { icon: Users,    color: 'text-emerald-400', label: 'Reunión' },
+                email:    { icon: Send,     color: 'text-amber-400',   label: 'Email' },
+                nota:     { icon: FileText, color: 'text-zinc-500',    label: 'Nota' },
+              }
+              const cfg = tipoConfig[act.tipo] ?? tipoConfig.nota
+              const Icon = cfg.icon
+              return (
+                <div key={act.id} className="flex gap-3 px-5 py-3.5">
+                  <div className="mt-0.5">
+                    <Icon size={13} className={cfg.color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-[10px] font-medium uppercase tracking-widest ${cfg.color}`}>{cfg.label}</span>
+                      <span className="text-[10px] text-zinc-700">
+                        {format(new Date(act.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                      </span>
+                    </div>
+                    <p className="text-[13px] text-zinc-400 leading-relaxed">{act.descripcion}</p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
