@@ -161,6 +161,9 @@ export default function CampanaDetailPage() {
     setDeleting(false)
   }
 
+  // suppress unused warning
+  void responseRate
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <Link href="/campanas" className="inline-flex items-center gap-1.5 text-[12px] text-zinc-600 hover:text-zinc-300 transition-colors mb-5">
@@ -199,7 +202,7 @@ export default function CampanaDetailPage() {
         <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl mb-5">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
           <p className="text-[13px] text-amber-400">
-            <span className="font-semibold">Tasa de entrega baja ({deliveryRate}%)</span> — el benchmark saludable es ≥{DELIVERY_RATE_HEALTHY}%. Revisá la calidad de tu lista o el estado de tu cuenta de envío.
+            <span className="font-semibold">Tasa de entrega baja ({deliveryRate}%)</span> &mdash; el benchmark saludable es ≥{DELIVERY_RATE_HEALTHY}%. Revisá la calidad de tu lista o el estado de tu cuenta de envío.
           </p>
         </div>
       )}
@@ -262,7 +265,7 @@ export default function CampanaDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <BarChart3 size={13} className="text-zinc-600" />
-              <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">A/B — Tasa de respuesta</p>
+              <p className="text-[10px] font-medium text-zinc-600 uppercase tracking-widest">A/B &mdash; Tasa de respuesta</p>
             </div>
             {winner && (
               <span className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2 py-0.5">
@@ -372,7 +375,7 @@ export default function CampanaDetailPage() {
                       </div>
                     </div>
                     {m.nota_respuesta && (
-                      <p className="mt-1 text-[11px] text-zinc-500 italic">"{m.nota_respuesta}"</p>
+                      <p className="mt-1 text-[11px] text-zinc-500 italic">&quot;{m.nota_respuesta}&quot;</p>
                     )}
                   </div>
                 </div>
@@ -409,7 +412,7 @@ export default function CampanaDetailPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-[12px] text-zinc-600 font-mono">
-                    {m.enviado_at ? format(new Date(m.enviado_at), "HH:mm:ss") : '—'}
+                    {m.enviado_at ? format(new Date(m.enviado_at), 'HH:mm:ss') : '—'}
                   </td>
                 </tr>
               ))}
