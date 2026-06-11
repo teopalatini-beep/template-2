@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
 import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -25,9 +25,18 @@ export async function GET(request: Request) {
   }
 
   const alertEmail = process.env.ALERT_EMAIL
-  const resendApiKey = process.env.RESEND_API_KEY
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
   if (!alertEmail) return NextResponse.json({ error: 'Falta ALERT_EMAIL' }, { status: 500 })
-  if (!resendApiKey) return NextResponse.json({ error: 'Falta RESEND_API_KEY' }, { status: 500 })
+  if (!accessKeyId || !secretAccessKey) {
+    return NextResponse.json({ error: 'Faltan credenciales AWS SES' }, { status: 500 })
+  }
+
+  const ses = new SESClient({
+    region: process.env.AWS_SES_REGION ?? 'sa-east-1',
+    credentials: { accessKeyId, secretAccessKey },
+  })
+  const fromEmail = process.env.AWS_SES_FROM_EMAIL ?? 'simplepass@simplepass.com.ar'
 
   const { data: productores, error: pError } = await supabase
     .from('productores')
@@ -120,17 +129,19 @@ export async function GET(request: Request) {
     </html>
   `
 
-  const resend = new Resend(resendApiKey)
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
-
-  const { error: sendError } = await resend.emails.send({
-    from: fromEmail,
-    to: alertEmail,
-    subject: `⚠️ ${stale.length} deal${stale.length > 1 ? 's' : ''} sin actividad en el pipeline`,
-    html,
-  })
-
-  if (sendError) return NextResponse.json({ error: sendError.message }, { status: 500 })
+  try {
+    await ses.send(new SendEmailCommand({
+      Source: fromEmail,
+      Destination: { ToAddresses: [alertEmail] },
+      Message: {
+        Subject: { Data: `⚠️ ${stale.length} deal${stale.length > 1 ? 's' : ''} sin actividad en el pipeline`, Charset: 'UTF-8' },
+        Body: { Html: { Data: html, Charset: 'UTF-8' } },
+      },
+    }))
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Error desconocido'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 
   return NextResponse.json({ enviado: true, deals: stale.length })
 }

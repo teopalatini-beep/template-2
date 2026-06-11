@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
 import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -10,9 +10,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY
-  if (!resendApiKey) return NextResponse.json({ error: 'Falta RESEND_API_KEY' }, { status: 500 })
-  const resend = new Resend(resendApiKey)
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
+  if (!accessKeyId || !secretAccessKey) {
+    return NextResponse.json({ error: 'Faltan credenciales AWS SES' }, { status: 500 })
+  }
+
+  const ses = new SESClient({
+    region: process.env.AWS_SES_REGION ?? 'sa-east-1',
+    credentials: { accessKeyId, secretAccessKey },
+  })
+  const fromEmail = process.env.AWS_SES_FROM_EMAIL ?? 'simplepass@simplepass.com.ar'
 
   const now = new Date().toISOString()
   const { data: jobs, error } = await supabase
@@ -37,22 +45,22 @@ export async function GET(request: Request) {
     }
 
     try {
-      const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
-      const { error: sendError } = await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: titulo,
-        text: mensaje,
-      })
-
-      if (sendError) throw new Error(sendError.message)
+      await ses.send(new SendEmailCommand({
+        Source: fromEmail,
+        Destination: { ToAddresses: [email] },
+        Message: {
+          Subject: { Data: titulo, Charset: 'UTF-8' },
+          Body: { Text: { Data: mensaje, Charset: 'UTF-8' } },
+        },
+      }))
 
       await supabase.from('email_jobs').update({
         estado: 'enviado',
         enviado_at: new Date().toISOString(),
       }).eq('id', job.id)
       enviados++
-    } catch {
+    } catch (e: unknown) {
+      console.error('send-scheduled error:', e instanceof Error ? e.message : e)
       await supabase.from('email_jobs').update({ estado: 'fallido' }).eq('id', job.id)
       fallidos++
     }
